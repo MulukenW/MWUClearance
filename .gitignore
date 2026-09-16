@@ -1,0 +1,35 @@
+# ─── Dependencies ──────────────────────────────────────────────
+node_modules/
+/vendor/
+
+# ─── Build output ──────────────────────────────────────────────
+frontend/dist/
+backend/public/hot
+backend/public/storage
+backend/storage/*.key
+
+# ─── Environment & secrets ─────────────────────────────────────
+.env
+.env.backup
+.env.*.local
+frontend/.env
+
+# ─── Logs & caches ─────────────────────────────────────────────
+*.log
+npm-debug.log*
+yarn-error.log*
+.phpunit.result.cache
+
+# ─── Local deploy / tool state ─────────────────────────────────
+.vercel/
+.freebuff/
+.qoder/
+docker-compose.override.yml
+Homestead.json
+Homestead.yaml
+
+# ─── Editors & OS ──────────────────────────────────────────────
+/.idea
+/.vscode
+.DS_Store
+Thumbs.db
