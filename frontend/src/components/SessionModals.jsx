@@ -12,17 +12,28 @@ export default function SessionModals({
 }) {
   const navigate = useNavigate();
 
-  const handleGoToLogin = () => {
-    if (onLogout) {
-      onLogout();
+  // Fire-and-forget logout raced with navigation and could leave the token
+  // in localStorage — clear credentials deterministically before navigating.
+  const handleGoToLogin = async () => {
+    try {
+      if (onLogout) await onLogout();
+    } catch {
+      // ignore
     }
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("mwu_last_active_time");
     navigate("/login?reason=expired", { replace: true });
   };
 
-  const handleDisplacedLogin = () => {
-    if (onLogout) {
-      onLogout();
+  const handleDisplacedLogin = async () => {
+    try {
+      if (onLogout) await onLogout();
+    } catch {
+      // ignore
     }
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     navigate("/login?reason=multitab", { replace: true });
   };
 

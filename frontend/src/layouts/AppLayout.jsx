@@ -561,13 +561,16 @@ export default function AppLayout() {
     user,
   );
 
-  // Inactivity expiration timer (15 minutes, 60s warning)
+  // Inactivity session: after 15 idle minutes show the "Session Expired"
+  // modal FIRST (blocks the UI and explains why), and only log out when the
+  // user clicks through — previously onExpire logged out instantly, which
+  // unmounted this layout before the modal could render (silent kick-out).
+  // A 60s countdown warning modal appears beforehand (SessionModals).
   const { isExpired, isWarning, remainingSeconds, extendSession } =
     useSessionTimer({
       isAuthenticated,
-      onExpire: logout,
-      timeoutMs: 15 * 60 * 1000,
-      warningMs: 60 * 1000,
+      timeoutMs: 15 * 60 * 1000, // 15 minutes idle
+      warningMs: 60 * 1000, // 60s countdown warning
     });
 
   return (
