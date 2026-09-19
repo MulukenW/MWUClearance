@@ -22,6 +22,7 @@ import OfficerDashboard from "./pages/officer/Dashboard";
 import PendingClearances from "./pages/officer/PendingClearances";
 import OfficerClearanceDetail from "./pages/officer/ClearanceDetail";
 import OfficerHistory from "./pages/officer/History";
+import Chats from "./pages/shared/Chats";
 
 // Admin pages
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -100,6 +101,14 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/student/chats"
+              element={
+                <ProtectedRoute roles={["student"]}>
+                  <Chats />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Officer routes */}
             <Route
@@ -131,6 +140,14 @@ export default function App() {
               element={
                 <ProtectedRoute roles={OFFICER_ROLES}>
                   <OfficerHistory />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/officer/chats"
+              element={
+                <ProtectedRoute roles={OFFICER_ROLES}>
+                  <Chats />
                 </ProtectedRoute>
               }
             />

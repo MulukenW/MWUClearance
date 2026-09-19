@@ -86,6 +86,16 @@ export const notificationApi = {
   markAllRead: () => api.post("/notifications/mark-all-read"),
 };
 
+// ─── Chat (workflow-scoped conversations) ─────────────────────────────────
+export const chatApi = {
+  messages: (itemId) => api.get(`/clearance/items/${itemId}/chat`),
+  send: (itemId, message) =>
+    api.post(`/clearance/items/${itemId}/chat`, { message }),
+  threads: () => api.get("/chat/threads"),
+  markRead: (messageId) => api.post(`/chat/messages/${messageId}/read`),
+  unreadCount: () => api.get("/chat/unread-count"),
+};
+
 // ─── Students (officer/admin view) ──────────────────────────────────────────
 export const studentsApi = {
   list: (params) => api.get("/students", { params }),
@@ -125,6 +135,8 @@ export const adminApi = {
 
   // Students
   createStudent: (data) => api.post("/admin/students", data),
+  importStudents: (rows, autoEmail = false, autoCreate = false) =>
+    api.post("/admin/students/import", { rows, auto_email: autoEmail, auto_create: autoCreate }, { timeout: 120000 }),
   updateStudent: (id, data) => api.put(`/admin/students/${id}`, data),
   deleteStudent: (id) => api.delete(`/admin/students/${id}`),
 

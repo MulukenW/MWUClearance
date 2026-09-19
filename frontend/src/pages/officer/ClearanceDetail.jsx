@@ -5,6 +5,7 @@ import ClearanceTimeline from "../../components/ClearanceTimeline";
 import StatusBadge from "../../components/StatusBadge";
 import Modal from "../../components/Modal";
 import LoadingSpinner from "../../components/LoadingSpinner";
+import ChatPanel from "../../components/ChatPanel";
 import { formatDate, formatDateTime } from "../../utils/helpers";
 
 export default function OfficerClearanceDetail() {
@@ -185,6 +186,22 @@ export default function OfficerClearanceDetail() {
         </h2>
         <ClearanceTimeline items={clearance.clearance_items || []} />
       </div>
+
+      {/* Chat with the student */}
+      {item && ['pending', 'under_review', 'rejected'].includes(item.status) && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-1">Chat with Student</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Talk directly with {student.name || 'the student'} about this step. The
+            conversation closes automatically once you approve the step.
+          </p>
+          <ChatPanel
+            itemId={item.id}
+            title={student.name || 'Student'}
+            subtitle={`${item.clearance_office?.name || 'Office'} · ${student.student_id || ''}`}
+          />
+        </div>
+      )}
 
       {/* Comments Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">

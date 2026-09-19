@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\VerificationController;
 use App\Http\Controllers\Api\ReportsController;
 use App\Http\Controllers\Api\WebAuthnController;
 use App\Http\Controllers\Api\SettingsController;
+use App\Http\Controllers\Api\ChatController;
 
 /*
 |--------------------------------------------------------------------------
@@ -110,6 +111,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/mark-all-read', [NotificationController::class, 'markAllAsRead']);
     });
 
+    // ---- Chat routes (workflow-scoped conversations; access enforced in ChatController) ----
+    Route::get('/chat/threads', [ChatController::class, 'threads']);
+    Route::get('/chat/unread-count', [ChatController::class, 'unreadCount']);
+    Route::post('/chat/messages/{id}/read', [ChatController::class, 'markRead']);
+    Route::get('/clearance/items/{itemId}/chat', [ChatController::class, 'index']);
+    Route::post('/clearance/items/{itemId}/chat', [ChatController::class, 'store']);
+
     // ---- Student management routes (for officers and admin) ----
     Route::prefix('students')->middleware('role:advisor,department_head,laboratory,library,dormitory,police,registrar,cafeteria,student_service,cost_sharing,continuing_education,admin')->group(function () {
         Route::get('/', [StudentController::class, 'index']);
@@ -143,6 +151,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Student management (CRUD)
         Route::post('/students', [AdminController::class, 'createStudent']);
+        Route::post('/students/import', [AdminController::class, 'importStudents']);
         Route::put('/students/{id}', [AdminController::class, 'updateStudent']);
         Route::delete('/students/{id}', [AdminController::class, 'deleteStudent']);
 

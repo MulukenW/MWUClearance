@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import { API_BASE_URL, notificationApi } from "../services/api";
+import { API_BASE_URL, notificationApi, chatApi } from "../services/api";
 import { getInitials, formatDateTime } from "../utils/helpers";
 import { OFFICER_ROLES } from "../constants";
 import useSingleTabSession from "../hooks/useSingleTabSession";
@@ -54,10 +54,12 @@ const icons = {
   clock: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
   certificate:
     "M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z",
+  chat:
+    "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z",
 };
 
 /* ─── Sidebar Link ──────────────────────────────────────────────────── */
-function SidebarLink({ to, icon, label, collapsed, onClick }) {
+function SidebarLink({ to, icon, label, collapsed, onClick, badge = 0 }) {
   return (
     <NavLink
       to={to}
@@ -70,8 +72,24 @@ function SidebarLink({ to, icon, label, collapsed, onClick }) {
         }`
       }
     >
-      <span className="flex-shrink-0">{icon}</span>
-      {!collapsed && <span>{label}</span>}
+      <span className="flex-shrink-0 relative">
+        {icon}
+        {collapsed && badge > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold rounded-full min-w-[0.9rem] h-3.5 px-0.5 flex items-center justify-center">
+            {badge > 9 ? "9+" : badge}
+          </span>
+        )}
+      </span>
+      {!collapsed && (
+        <>
+          <span className="flex-1">{label}</span>
+          {badge > 0 && (
+            <span className="bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[1.25rem] h-5 px-1.5 flex items-center justify-center">
+              {badge > 99 ? "99+" : badge}
+            </span>
+          )}
+        </>
+      )}
     </NavLink>
   );
 }
@@ -89,6 +107,21 @@ function SectionLabel({ children, collapsed }) {
 /* ─── Sidebar ───────────────────────────────────────────────────────── */
 function Sidebar({ mobileOpen, onClose }) {
   const { user, roleCode } = useAuth();
+  const [chatUnread, setChatUnread] = useState(0);
+
+  // Poll unread chat badge (admins have no chat inbox)
+  useEffect(() => {
+    if (roleCode === "admin") return;
+    const fetch = () => {
+      chatApi
+        .unreadCount()
+        .then((res) => setChatUnread(res.data.data?.unread_count || 0))
+        .catch(() => {});
+    };
+    fetch();
+    const interval = setInterval(fetch, 15000);
+    return () => clearInterval(interval);
+  }, [roleCode]);
 
   const studentLinks = [
     {
@@ -105,6 +138,11 @@ function Sidebar({ mobileOpen, onClose }) {
       to: "/student/certificates",
       label: "My Certificates",
       icon: <Icon d={icons.certificate} />,
+    },
+    {
+      to: "/student/chats",
+      label: "Chats",
+      icon: <Icon d={icons.chat} />,
     },
   ];
 
@@ -123,6 +161,11 @@ function Sidebar({ mobileOpen, onClose }) {
       to: "/officer/history",
       label: "History",
       icon: <Icon d={icons.audit} />,
+    },
+    {
+      to: "/officer/chats",
+      label: "Chats",
+      icon: <Icon d={icons.chat} />,
     },
   ];
 
@@ -232,7 +275,13 @@ function Sidebar({ mobileOpen, onClose }) {
   const renderSimpleSidebar = () => (
     <div className="py-2">
       {Array.isArray(links) &&
-        links.map((l) => <SidebarLink key={l.to} {...l} />)}
+        links.map((l) => (
+          <SidebarLink
+            key={l.to}
+            {...l}
+            badge={l.label === "Chats" ? chatUnread : 0}
+          />
+        ))}
     </div>
   );
 

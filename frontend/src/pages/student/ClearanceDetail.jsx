@@ -5,6 +5,7 @@ import ClearanceTimeline from '../../components/ClearanceTimeline';
 import ProgressBar from '../../components/ProgressBar';
 import StatusBadge from '../../components/StatusBadge';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import ChatPanel from '../../components/ChatPanel';
 import { formatDate } from '../../utils/helpers';
 
 export default function ClearanceDetail() {
@@ -12,6 +13,7 @@ export default function ClearanceDetail() {
   const [clearance, setClearance] = useState(null);
   const [loading, setLoading] = useState(true);
   const [resubmitting, setResubmitting] = useState(null);
+  const [chatItem, setChatItem] = useState(null); // {id, officeName, status}
 
   const fetchClearance = () => {
     setLoading(true);
@@ -37,6 +39,10 @@ export default function ClearanceDetail() {
 
   const rejectedItems = (clearance.clearance_items || []).filter((i) => i.status === 'rejected');
   const isCompleted = clearance.status === 'completed';
+  // Chat is available on the active step (pending/under review) and on rejected steps
+  const chatableItems = (clearance.clearance_items || []).filter((i) =>
+    ['pending', 'under_review', 'rejected'].includes(i.status)
+  );
 
   return (
     <div>
@@ -75,6 +81,65 @@ export default function ClearanceDetail() {
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Workflow Steps</h2>
         <ClearanceTimeline items={clearance.clearance_items || []} />
       </div>
+
+      {/* Chat with the office currently handling the clearance */}
+      {chatableItems.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mt-6">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-lg font-semibold text-gray-800">Chat</h2>
+            {chatItem && (
+              <button onClick={() => setChatItem(null)} className="text-sm text-mwu-blue hover:underline">
+                Show offices
+              </button>
+            )}
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            {chatItem
+              ? `Your conversation with ${chatItem.officeName}.`
+              : 'Talk directly with the office currently reviewing your clearance. Conversations follow the workflow — when a step is approved, the chat moves to the next office.'}
+          </p>
+          {chatItem ? (
+            <ChatPanel
+              itemId={chatItem.id}
+              title={chatItem.officeName}
+              subtitle={
+                chatItem.status === 'rejected'
+                  ? 'Step rejected — resolve the issue with the office'
+                  : 'Current step in your clearance workflow'
+              }
+              onClose={() => setChatItem(null)}
+            />
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-3">
+              {chatableItems.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() =>
+                    setChatItem({ id: item.id, officeName: item.clearance_office?.name || 'Office', status: item.status })
+                  }
+                  className="flex items-center justify-between p-4 rounded-xl border border-gray-200 hover:border-mwu-blue hover:bg-blue-50/40 transition text-left"
+                >
+                  <div>
+                    <p className="font-medium text-gray-800 text-sm">{item.clearance_office?.name}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {item.status === 'rejected'
+                        ? 'Rejected — chat to resolve it'
+                        : item.status === 'under_review'
+                        ? 'Reviewing your request now'
+                        : 'Waiting to start'}
+                    </p>
+                  </div>
+                  <span className="text-mwu-blue">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {isCompleted && (
         <div className="mt-6 bg-green-50 border border-green-200 rounded-xl p-6 text-center">
