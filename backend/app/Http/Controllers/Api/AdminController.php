@@ -20,6 +20,7 @@ use App\Http\Resources\StudentResource;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
 use App\Services\AuditLogService;
 use Exception;
@@ -273,13 +274,20 @@ class AdminController extends Controller
                 $role = Role::where('code', $request->role_code)->first();
             }
 
+            // Auto-assign the clearance office matching the role when none was chosen,
+            // so officer accounts can always receive workflow items (office code == role code)
+            $officeId = $request->input('clearance_office_id');
+            if (empty($officeId) && $role && !in_array($role->code, ['admin', 'student'])) {
+                $officeId = ClearanceOffice::where('code', $role->code)->value('id');
+            }
+
             $user = User::create([
                 'name' => $request->name,
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'role_id' => $role->id,
                 'department_id' => $request->department_id,
-                'clearance_office_id' => $request->clearance_office_id,
+                'clearance_office_id' => $officeId,
                 'status' => $request->get('status', 'active'),
             ]);
 
@@ -356,6 +364,17 @@ class AdminController extends Controller
             } elseif ($request->filled('role_code')) {
                 $role = Role::where('code', $request->role_code)->first();
                 $userData['role_id'] = $role->id;
+            }
+
+            // Auto-assign the clearance office matching the role if the user still has none
+            if (empty($userData['clearance_office_id']) && $user->clearance_office_id === null) {
+                $roleCode = isset($role) ? $role->code : $user->role->code;
+                if ($roleCode && !in_array($roleCode, ['admin', 'student'])) {
+                    $officeId = ClearanceOffice::where('code', $roleCode)->value('id');
+                    if ($officeId) {
+                        $userData['clearance_office_id'] = $officeId;
+                    }
+                }
             }
 
             $user->update($userData);
@@ -705,6 +724,481 @@ class AdminController extends Controller
     }
 
     /**
+     * Bulk-import students from spreadsheet rows (parsed client-side from CSV/XLSX).
+     * Accepts college/department/program/student_type as names or IDs and resolves them,
+     * auto-generates passwords, and reports per-row results so partial success is possible.
+     */
+    public function importStudents(Request $request)
+    {
+        $request->validate([
+            'rows' => 'required|array|max:1000',
+            'auto_email' => 'nullable|boolean',
+            'auto_create' => 'nullable|boolean',
+        ]);
+
+        $rows = $request->input('rows');
+        $autoEmail = $request->boolean('auto_email');
+        $autoCreate = $request->boolean('auto_create');
+
+        if (empty($rows)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No data rows found in the uploaded file.',
+            ], 422);
+        }
+
+        // ---- Normalizer: NBSP -> space, lowercase, collapse whitespace, strip
+        // "Department of " / "College of " style prefixes and punctuation, and expand
+        // common degree abbreviations, so spreadsheet values like "BSc in Computer
+        // Science" or "Dept. of Computer Science" match the canonical DB names ----
+        $normName = function ($v) {
+            $s = strtolower(trim(preg_replace('/[\s\x{00A0}]+/u', ' ', (string) $v)));
+            $s = preg_replace('/^(department|dept|college|school|faculty|program|programme)s?\s+(of|in)\s+/', '', $s);
+            $s = preg_replace('/\s+(program|programme|department|dept)$/', '', $s);
+            $s = preg_replace('/[^a-z0-9 ]+/', ' ', $s);
+            $s = preg_replace('/\s+/', ' ', trim($s));
+            // Degree abbreviations -> full words (word-bounded)
+            $abbrev = [
+                '/\bbsc\b/' => 'bachelor of science',
+                '/\bbs\b/' => 'bachelor of science',
+                '/\bmsc\b/' => 'master of science',
+                '/\bms\b/' => 'master of science',
+                '/\bba\b/' => 'bachelor of arts',
+                '/\bma\b/' => 'master of arts',
+                '/\bphd\b/' => 'doctor of philosophy',
+                '/\bllb\b/' => 'bachelor of laws',
+                '/\bbed\b/' => 'bachelor of education',
+                '/\bmed\b/' => 'master of education',
+            ];
+            return trim(preg_replace(array_keys($abbrev), array_values($abbrev), $s));
+        };
+
+        // ---- Reference lists with pre-normalized names (fast per-row matching) ----
+        $collegeList = [];
+        foreach (College::all() as $c) {
+            $collegeList[] = ['id' => (int) $c->id, 'name' => $c->name, 'norm' => $normName($c->name)];
+        }
+        $deptList = [];
+        foreach (Department::all() as $d) {
+            $deptList[] = ['id' => (int) $d->id, 'college_id' => (int) $d->college_id, 'name' => $d->name, 'norm' => $normName($d->name)];
+        }
+        $progList = [];
+        foreach (Program::all() as $p) {
+            $progList[] = ['id' => (int) $p->id, 'department_id' => (int) $p->department_id, 'name' => $p->name, 'norm' => $normName($p->name)];
+        }
+        $typeList = [];
+        foreach (StudentType::all() as $t) {
+            $typeList[] = ['id' => (int) $t->id, 'name' => $t->name, 'norm' => $normName($t->name)];
+        }
+
+        // Resolution: exact normalized match first, then containment either direction,
+        // then typo tolerance (>= 85% similar). Containment picks the shortest matching
+        // DB name (most specific) to avoid broad words matching everything.
+        $resolveByName = function ($value, array $list) use ($normName) {
+            $needle = $normName($value);
+            if ($needle === '') return null;
+            foreach ($list as $item) {
+                if ($item['norm'] === $needle) return (int) $item['id'];
+            }
+            $best = null;
+            $bestLen = PHP_INT_MAX;
+            foreach ($list as $item) {
+                if ($item['norm'] === '') continue;
+                if (strpos($item['norm'], $needle) !== false || strpos($needle, $item['norm']) !== false) {
+                    if (strlen($item['norm']) < $bestLen) {
+                        $bestLen = strlen($item['norm']);
+                        $best = (int) $item['id'];
+                    }
+                }
+            }
+            if ($best !== null) return $best;
+            $bestScore = 0.0;
+            foreach ($list as $item) {
+                if ($item['norm'] === '' || strlen($item['norm']) < 4) continue;
+                $maxLen = max(strlen($item['norm']), strlen($needle));
+                if ($maxLen === 0) continue;
+                $score = 1 - (levenshtein($item['norm'], $needle) / $maxLen);
+                if ($score >= 0.85 && $score > $bestScore) {
+                    $bestScore = $score;
+                    $best = (int) $item['id'];
+                }
+            }
+            return $best;
+        };
+
+        $studentRole = Role::where('code', 'student')->first();
+        if (!$studentRole) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Student role not found in the system. Run the role seeder.',
+            ], 500);
+        }
+
+        // Unique code generator for auto-created reference rows (code is NOT NULL UNIQUE)
+        $makeCode = function ($prefix, $table) {
+            do {
+                $code = $prefix . '-' . strtoupper(substr(md5(uniqid('', true)), 0, 8));
+            } while (DB::table($table)->where('code', $code)->exists());
+            return $code;
+        };
+
+        $seenEmails = [];
+        $seenStudentIds = [];
+        $results = [];
+        $imported = 0;
+        $failed = 0;
+
+        foreach ($rows as $index => $row) {
+            $rowNumber = $index + 2; // +2: header row is row 1, data starts at row 2
+            $errors = [];
+
+            $studentId = trim((string) ($row['student_id'] ?? ''));
+            $firstName = trim((string) ($row['first_name'] ?? ''));
+            $middleName = trim((string) ($row['middle_name'] ?? ''));
+            $lastName = trim((string) ($row['last_name'] ?? ''));
+
+            // Single "Full Name" column: split into first / middle / last
+            if ($firstName === '' && $lastName === '') {
+                $fullNameRaw = trim((string) ($row['full_name'] ?? ''));
+                if ($fullNameRaw !== '') {
+                    $parts = preg_split('/\s+/', $fullNameRaw);
+                    $firstName = array_shift($parts);
+                    $lastName = count($parts) ? array_pop($parts) : $firstName;
+                    $middleName = trim(implode(' ', $parts));
+                }
+            }
+            $email = strtolower(trim((string) ($row['email'] ?? '')));
+            $emailWasEmpty = $email === '';
+            $phone = trim((string) ($row['phone'] ?? '')) ?: null;
+            $academicYear = trim((string) ($row['academic_year'] ?? '')) ?: date('Y');
+
+            // Accept "2026", "2026/27", "2026-2027", or text containing a year: take the first 4-digit number
+            $admissionRaw = trim((string) ($row['admission_year'] ?? ''));
+            $admissionYear = date('Y');
+            if ($admissionRaw !== '' && preg_match('/(19|20)\d{2}/', $admissionRaw, $m)) {
+                $admissionYear = $m[0];
+            }
+
+            // ---- Required-field checks ----
+            if ($studentId === '') $errors[] = 'Student ID is required';
+            if ($firstName === '') $errors[] = 'First name is required';
+            if ($lastName === '') $errors[] = 'Last name is required';
+            if ($email === '' && !$autoEmail) {
+                $errors[] = 'Email is required (or enable auto-generate missing emails)';
+            } elseif ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $errors[] = "Email '$email' is not valid";
+            }
+            if ((int) $admissionYear < 1990 || (int) $admissionYear > (int) date('Y') + 1) {
+                $errors[] = "Admission year '$admissionRaw' could not be read as a year between 1990 and " . (date('Y') + 1);
+            }
+
+            // ---- Resolve college / department / program / student type ----
+            $collegeId = null;
+            $departmentId = null;
+            $programId = null;
+            $typeId = null;
+
+            $collegeKey = trim((string) ($row['college'] ?? ''));
+            if ($collegeKey !== '') {
+                $collegeId = null;
+                if (ctype_digit($collegeKey)) {
+                    foreach ($collegeList as $c) {
+                        if ($c['id'] == $collegeKey) { $collegeId = $c['id']; break; }
+                    }
+                }
+                if ($collegeId === null) $collegeId = $resolveByName($collegeKey, $collegeList);
+                if ($collegeId === null) $errors[] = "College '$collegeKey' not found";
+            } else {
+                $errors[] = 'College is required';
+            }
+
+            $deptKey = trim((string) ($row['department'] ?? ''));
+            if ($deptKey !== '') {
+                $deptId = null;
+                if (ctype_digit($deptKey)) {
+                    foreach ($deptList as $d) {
+                        if ($d['id'] == $deptKey) { $deptId = $d['id']; break; }
+                    }
+                }
+                // Prefer departments inside the resolved college; a same-name department
+                // in another college is a likely false match, not a real one.
+                if ($deptId === null && $collegeId !== null) {
+                    $scoped = [];
+                    foreach ($deptList as $d) {
+                        if ($d['college_id'] === $collegeId) $scoped[] = $d;
+                    }
+                    $deptId = $resolveByName($deptKey, $scoped);
+                }
+                if ($deptId === null && !$autoCreate) {
+                    // Only fall back to other colleges when we cannot create a proper one
+                    $deptId = $resolveByName($deptKey, $deptList);
+                }
+                if ($deptId === null && $autoCreate && $collegeId !== null) {
+                    // Create the missing department under the resolved college
+                    $newDept = Department::create(['name' => $deptKey, 'college_id' => $collegeId, 'code' => $makeCode('DEP', 'departments')]);
+                    $newEntry = ['id' => (int) $newDept->id, 'college_id' => $collegeId, 'name' => $newDept->name, 'norm' => $normName($newDept->name)];
+                    $deptList[] = $newEntry;
+                    $deptId = $newEntry['id'];
+                }
+                if ($deptId === null) {
+                    $errors[] = "Department '$deptKey' not found";
+                } else {
+                    $owner = null;
+                    foreach ($deptList as $d) {
+                        if ($d['id'] === $deptId) { $owner = $d; break; }
+                    }
+                    if ($owner && ($collegeId === null || $owner['college_id'] === $collegeId)) {
+                        $departmentId = $deptId;
+                    } else {
+                        $errors[] = "Department '$deptKey' does not belong to the selected college";
+                    }
+                }
+            } else {
+                $errors[] = 'Department is required';
+            }
+
+            $progKey = trim((string) ($row['program'] ?? ''));
+            $typeKey = trim((string) ($row['student_type'] ?? ''));
+
+            // Rosters often put admission types (Regular/Extension) in the Program column
+            // (or programs in the Student Type column). Swap when the value clearly
+            // belongs to the other field.
+            if ($progKey !== '' && $typeKey === '') {
+                $isType = $resolveByName($progKey, $typeList) !== null;
+                $isProg = $resolveByName($progKey, $progList) !== null;
+                if ($isType && !$isProg) {
+                    $typeKey = $progKey;
+                    $progKey = '';
+                }
+            } elseif ($typeKey !== '' && $progKey === '') {
+                $isProg = $resolveByName($typeKey, $progList) !== null;
+                $isType = $resolveByName($typeKey, $typeList) !== null;
+                if ($isProg && !$isType) {
+                    $progKey = $typeKey;
+                    $typeKey = '';
+                }
+            }
+
+            $progId = null;
+            if ($progKey !== '') {
+                if (ctype_digit($progKey)) {
+                    foreach ($progList as $p) {
+                        if ($p['id'] == $progKey) { $progId = $p['id']; break; }
+                    }
+                }
+                if ($progId === null) $progId = $resolveByName($progKey, $progList);
+                // Fallback: the value is really a department name — if that department
+                // offers exactly one program, use it.
+                if ($progId === null) {
+                    $matchedDept = $resolveByName($progKey, $deptList);
+                    if ($matchedDept !== null) {
+                        $deptPrograms = [];
+                        foreach ($progList as $p) {
+                            if ($p['department_id'] === $matchedDept) $deptPrograms[] = $p['id'];
+                        }
+                        if (count($deptPrograms) === 1) $progId = $deptPrograms[0];
+                    }
+                }
+            }
+            // No Program column: derive it from the department — its single program, or
+            // its Bachelor's (undergraduate) program when several exist, so spreadsheets
+            // without a Program column still import. (Provided-but-unresolvable stays an error.)
+            if ($progId === null && $progKey === '' && $departmentId !== null) {
+                $deptPrograms = [];
+                foreach ($progList as $p) {
+                    if ($p['department_id'] === $departmentId) $deptPrograms[] = $p;
+                }
+                if (count($deptPrograms) === 1) {
+                    $progId = $deptPrograms[0]['id'];
+                } elseif (count($deptPrograms) > 1) {
+                    $bachelor = null;
+                    foreach ($deptPrograms as $p) {
+                        if (strpos($p['norm'], 'bachelor') === 0) { $bachelor = $p; break; }
+                    }
+                    $progId = ($bachelor ?? $deptPrograms[0])['id'];
+                } elseif ($autoCreate) {
+                    // Freshly created department with no programs: give it a program
+                    // named after the department so the rows can import (rename later in Admin).
+                    $owner = null;
+                    foreach ($deptList as $d) {
+                        if ($d['id'] === $departmentId) { $owner = $d; break; }
+                    }
+                    $newProg = Program::create(['name' => $owner['name'], 'department_id' => $departmentId, 'code' => $makeCode('PRG', 'programs')]);
+                    $newEntry = ['id' => (int) $newProg->id, 'department_id' => $departmentId, 'name' => $newProg->name, 'norm' => $normName($newProg->name)];
+                    $progList[] = $newEntry;
+                    $progId = $newEntry['id'];
+                }
+            }
+            // Unknown program value with auto-create: add it under the row's department
+            if ($progId === null && $autoCreate && $departmentId !== null && $progKey !== '') {
+                $newProg = Program::create(['name' => $progKey, 'department_id' => $departmentId, 'code' => $makeCode('PRG', 'programs')]);
+                $newEntry = ['id' => (int) $newProg->id, 'department_id' => $departmentId, 'name' => $newProg->name, 'norm' => $normName($newProg->name)];
+                $progList[] = $newEntry;
+                $progId = $newEntry['id'];
+            }
+            if ($progId !== null) {
+                if ($departmentId !== null) {
+                    $owner = null;
+                    foreach ($progList as $p) {
+                        if ($p['id'] === $progId) { $owner = $p; break; }
+                    }
+                    if ($owner && $owner['department_id'] === $departmentId) {
+                        $programId = $progId;
+                    } else {
+                        $errors[] = "Program '$progKey' does not belong to the selected department";
+                    }
+                }
+            } else {
+                $errors[] = $progKey === ''
+                    ? 'Program is required (this department has multiple programs — add a Program column to the file)'
+                    : "Program '$progKey' not found";
+            }
+
+            if ($typeKey !== '') {
+                $typeId = null;
+                if (ctype_digit($typeKey)) {
+                    foreach ($typeList as $t) {
+                        if ($t['id'] == $typeKey) { $typeId = $t['id']; break; }
+                    }
+                }
+                if ($typeId === null) $typeId = $resolveByName($typeKey, $typeList);
+                if ($typeId === null && $autoCreate) {
+                    $newType = StudentType::create(['name' => $typeKey, 'code' => $makeCode('STY', 'student_types')]);
+                    $typeList[] = ['id' => (int) $newType->id, 'name' => $newType->name, 'norm' => $normName($newType->name)];
+                    $typeId = (int) $newType->id;
+                }
+                if ($typeId === null) $errors[] = "Student type '$typeKey' not found";
+            } else {
+                $errors[] = 'Student type is required';
+            }
+
+            // ---- Duplicates inside the file ----
+            if ($email !== '' && isset($seenEmails[$email])) {
+                $errors[] = "Duplicate email '$email' in the file";
+            }
+            if ($studentId !== '' && isset($seenStudentIds[$studentId])) {
+                $errors[] = "Duplicate Student ID '$studentId' in the file";
+            }
+
+            // ---- Duplicates against the database ----
+            if ($email !== '' && User::where('email', $email)->exists()) {
+                $errors[] = "A user with email '$email' already exists";
+            }
+            if ($studentId !== '' && Student::where('student_id', $studentId)->exists()) {
+                $errors[] = "A student with ID '$studentId' already exists";
+            }
+
+            if (!empty($errors)) {
+                $failed++;
+                $results[] = [
+                    'row' => $rowNumber,
+                    'status' => 'failed',
+                    'student_id' => $studentId,
+                    'email' => $email,
+                    'name' => trim($firstName . ' ' . $lastName),
+                    'errors' => $errors,
+                ];
+                $seenEmails[$email] = true;
+                $seenStudentIds[$studentId] = true;
+                continue;
+            }
+
+            $seenEmails[$email] = true;
+            $seenStudentIds[$studentId] = true;
+
+            // ---- Create user + student (per-row transaction: good rows survive bad ones) ----
+            DB::beginTransaction();
+            try {
+                // Auto-generate a unique email from the Student ID when the file has none
+                if ($emailWasEmpty) {
+                    $slug = trim(preg_replace('/[^a-z0-9]+/', '.', strtolower($studentId)), '.');
+                    $candidate = 'std.' . $slug . '@student.mwu.edu.et';
+                    $suffix = 1;
+                    while (User::where('email', $candidate)->exists()) {
+                        $candidate = 'std.' . $slug . '.' . (++$suffix) . '@student.mwu.edu.et';
+                    }
+                    $email = $candidate;
+                }
+
+                $generatedPassword = strtoupper(substr($firstName, 0, 1)) . $studentId . rand(100, 999);
+
+                $user = User::create([
+                    'name' => $firstName . ' ' . $lastName,
+                    'email' => $email,
+                    'password' => Hash::make($generatedPassword),
+                    'role_id' => $studentRole->id,
+                    'department_id' => $departmentId,
+                    'status' => 'active',
+                ]);
+
+                $student = Student::create([
+                    'user_id' => $user->id,
+                    'student_id' => $studentId,
+                    'first_name' => $firstName,
+                    'middle_name' => $middleName ?: null,
+                    'last_name' => $lastName,
+                    'college_id' => $collegeId,
+                    'department_id' => $departmentId,
+                    'program_id' => $programId,
+                    'student_type_id' => $typeId,
+                    'academic_year' => $academicYear,
+                    'admission_year' => (int) $admissionYear,
+                    'phone' => $phone,
+                    'email' => $email,
+                    'status' => 'active',
+                ]);
+
+                AuditLogService::log(
+                    'student_imported',
+                    "Student imported: {$student->student_id} ({$student->first_name} {$student->last_name})",
+                    'App\\Models\\Student',
+                    $student->id,
+                    ['student_id' => $student->student_id, 'department_id' => $student->department_id]
+                );
+
+                DB::commit();
+                $imported++;
+                $results[] = [
+                    'row' => $rowNumber,
+                    'status' => 'imported',
+                    'student_id' => $studentId,
+                    'email' => $email,
+                    'name' => trim($firstName . ' ' . $lastName),
+                    'password' => $generatedPassword,
+                    'email_generated' => $emailWasEmpty,
+                ];
+            } catch (Exception $e) {
+                DB::rollBack();
+                $failed++;
+                $results[] = [
+                    'row' => $rowNumber,
+                    'status' => 'failed',
+                    'student_id' => $studentId,
+                    'email' => $email,
+                    'name' => trim($firstName . ' ' . $lastName),
+                    'errors' => ['Database error: ' . $e->getMessage()],
+                ];
+            }
+        }
+
+        AuditLogService::log(
+            'students_bulk_imported',
+            "Bulk student import: $imported imported, $failed failed",
+            'App\\Models\\Student',
+            null,
+            ['imported' => $imported, 'failed' => $failed]
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => "Import finished: $imported imported, $failed failed.",
+            'imported' => $imported,
+            'failed' => $failed,
+            'results' => $results,
+        ]);
+    }
+
+    /**
      * Update an existing student
      */
     public function updateStudent(Request $request, $id)
@@ -746,6 +1240,9 @@ class AdminController extends Controller
             'admission_year' => 'sometimes|required|integer|min:1990|max:' . (date('Y') + 1),
             'phone' => 'nullable|string|max:20',
             'status' => 'sometimes|in:active,inactive,graduated,suspended',
+            'email' => ['sometimes', 'nullable', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($student->user_id)],
+            'student_id' => ['sometimes', 'required', 'string', 'max:50', Rule::unique('students', 'student_id')->ignore($student->id)],
+            'password' => 'nullable|string|min:8',
         ]);
 
         if ($validator->fails()) {
@@ -765,14 +1262,30 @@ class AdminController extends Controller
                 'academic_year', 'admission_year', 'phone', 'status',
             ]);
 
+            // Student ID change (unique on students table)
+            if ($request->filled('student_id') && $request->student_id !== $student->student_id) {
+                $studentData['student_id'] = $request->student_id;
+            }
+
             $student->update($studentData);
 
-            // Sync user name if first/last name changed
+            // Sync the linked user account (name, email, department, password)
+            $userSync = [];
             if ($request->filled('first_name') || $request->filled('last_name')) {
-                $student->user->update([
-                    'name' => $student->first_name . ' ' . $student->last_name,
-                    'department_id' => $student->department_id,
-                ]);
+                $userSync['name'] = trim($student->first_name . ' ' . ($student->middle_name ? $student->middle_name . ' ' : '') . $student->last_name);
+            }
+            if ($request->filled('email')) {
+                $userSync['email'] = $request->input('email');
+                $student->update(['email' => $request->input('email')]);
+            }
+            if ($request->filled('department_id')) {
+                $userSync['department_id'] = $student->department_id;
+            }
+            if ($request->filled('password')) {
+                $userSync['password'] = Hash::make($request->input('password'));
+            }
+            if (!empty($userSync)) {
+                $student->user->update($userSync);
             }
 
             AuditLogService::log(
