@@ -93,7 +93,7 @@ export default function NewClearance() {
       return;
     }
     if (!formData.police_location) {
-      setError("Please select police location (Robe or Goba).");
+      setError("Please select police location (Robe, Goba, or Shashemene).");
       setLoading(false);
       return;
     }
@@ -352,7 +352,7 @@ export default function NewClearance() {
                 <label className="block text-sm font-bold text-gray-800 mb-3">
                   University Police Location <span className="text-red-500">*</span>
                 </label>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <label
                     className={`relative flex flex-col items-center gap-3 p-6 border-2 rounded-xl cursor-pointer transition-all hover:border-mwu-blue hover:bg-blue-50 ${
                       formData.police_location === "robe"
@@ -396,22 +396,29 @@ export default function NewClearance() {
                       <div className="text-xs text-gray-500 mt-1">Branch Campus Police</div>
                     </div>
                   </label>
-                </div>
-              </div>
 
-              {/* Additional Notes */}
-              <div>
-                <label className="block text-sm font-bold text-gray-800 mb-2">
-                  Additional Notes <span className="text-gray-400 font-normal">(Optional)</span>
-                </label>
-                <textarea
-                  name="purpose"
-                  value={formData.purpose}
-                  onChange={handleChange}
-                  rows={4}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-mwu-blue/20 focus:border-mwu-blue outline-none transition-all resize-none"
-                  placeholder="Any additional information you'd like to provide..."
-                />
+                  <label
+                    className={`relative flex flex-col items-center gap-3 p-6 border-2 rounded-xl cursor-pointer transition-all hover:border-mwu-blue hover:bg-blue-50 ${
+                      formData.police_location === "shashemene"
+                        ? "border-mwu-blue bg-blue-50 shadow-sm"
+                        : "border-gray-200 bg-white"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="police_location"
+                      value="shashemene"
+                      checked={formData.police_location === "shashemene"}
+                      onChange={handleChange}
+                      className="absolute top-3 right-3 w-5 h-5 text-mwu-blue focus:ring-2 focus:ring-mwu-blue"
+                    />
+                    <div className="text-4xl">🏫</div>
+                    <div className="text-center">
+                      <div className="font-bold text-gray-800">Shashemene Campus</div>
+                      <div className="text-xs text-gray-500 mt-1">Branch Campus Police</div>
+                    </div>
+                  </label>
+                </div>
               </div>
 
               {/* Submit Buttons */}

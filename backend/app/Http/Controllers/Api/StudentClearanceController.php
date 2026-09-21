@@ -74,7 +74,7 @@ class StudentClearanceController extends Controller
                 'program_type' => 'nullable|in:regular,extension,summer,regular_in_service,winter_in_service',
                 'reason_for_clearance' => 'required|in:end_of_semester,withdrawal,academic_dismissal,graduation,other',
                 'reason_other' => 'nullable|string|max:255',
-                'police_location' => 'nullable|in:robe,goba',
+                'police_location' => 'nullable|in:robe,goba,shashemene',
             ]);
             
             $user = $request->user();

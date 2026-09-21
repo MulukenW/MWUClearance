@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { clearanceApi, authApi } from "../../services/api";
+import Modal from "../../components/Modal";
 import { useAuth } from "../../contexts/AuthContext";
 import LoadingSpinner from "../../components/LoadingSpinner";
 
@@ -56,6 +57,9 @@ export default function OfficerDashboard() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("pending");
+  const [actionLoading, setActionLoading] = useState(null);
+  const [rejectFor, setRejectFor] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -73,6 +77,41 @@ export default function OfficerDashboard() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  const refreshAfterAction = (itemId) => {
+    setPending((p) => p.filter((i) => i.id !== itemId));
+    setStats((s) =>
+      s ? { ...s, pending: Math.max(0, (s.pending || 1) - 1) } : s,
+    );
+  };
+
+  const handleApprove = async (item) => {
+    if (actionLoading) return;
+    setActionLoading(item.id);
+    try {
+      await clearanceApi.approve(item.id, "");
+      refreshAfterAction(item.id);
+    } catch (e) {
+      alert(e.response?.data?.message || "Failed to approve this item.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleReject = async () => {
+    if (!rejectFor || !rejectReason.trim() || actionLoading) return;
+    setActionLoading(rejectFor.id);
+    try {
+      await clearanceApi.reject(rejectFor.id, rejectReason, "");
+      refreshAfterAction(rejectFor.id);
+      setRejectFor(null);
+      setRejectReason("");
+    } catch (e) {
+      alert(e.response?.data?.message || "Failed to reject this item.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   if (loading) return <LoadingSpinner />;
 
@@ -365,12 +404,16 @@ export default function OfficerDashboard() {
                   const student =
                     item.clearance_request?.student || item.clearance?.student;
                   const office = item.clearance_office;
+                  const detailTo = `/officer/clearance/${item.clearance_request_id || item.clearance_id || item.id}`;
                   return (
-                    <Link
+                    <div
                       key={item.id}
-                      to={`/officer/clearance/${item.clearance_request_id || item.clearance_id || item.id}`}
                       className="flex items-center justify-between px-6 py-4 hover:bg-gray-50/50 transition-colors group"
                     >
+                      <Link
+                        to={detailTo}
+                        className="flex items-center gap-4 min-w-0"
+                      >
                       <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 text-sm font-bold">
                           {student?.name?.charAt(0) ||
@@ -392,23 +435,46 @@ export default function OfficerDashboard() {
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <StatusBadge status={item.status} />
-                        <svg
-                          className="w-4 h-4 text-gray-300 group-hover:text-gray-400"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+                      </Link>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleApprove(item)}
+                          disabled={!!actionLoading}
+                          title="Approve this step"
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:border-emerald-600 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 5l7 7-7 7"
-                          />
-                        </svg>
+                          {actionLoading === item.id ? "…" : "Approve"}
+                        </button>
+                        <button
+                          onClick={() => setRejectFor(item)}
+                          disabled={!!actionLoading}
+                          title="Reject this step"
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-red-200 bg-red-50 text-red-600 hover:bg-red-600 hover:border-red-600 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Reject
+                        </button>
+                        <StatusBadge status={item.status} />
+                        <Link
+                          to={detailTo}
+                          className="p-1"
+                          title="Open full review"
+                        >
+                          <svg
+                            className="w-4 h-4 text-gray-300 group-hover:text-gray-400"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 5l7 7-7 7"
+                            />
+                          </svg>
+                        </Link>
                       </div>
-                    </Link>
+                    </div>
                   );
                 })}
               </div>
@@ -573,6 +639,43 @@ export default function OfficerDashboard() {
           </svg>
         </Link>
       </div>
+      {/* Reject Modal (quick action) */}
+      {rejectFor && (
+        <Modal onClose={() => setRejectFor(null)}>
+          <h3 className="text-lg font-bold text-gray-800 mb-1">
+            Reject Clearance Item
+          </h3>
+          <p className="text-sm text-gray-500 mb-4">
+            {(rejectFor.clearance_request?.student ||
+              rejectFor.clearance?.student)?.name || "Student"} · {rejectFor.clearance_office?.name || "Clearance Office"}
+          </p>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Reason for rejection (required)
+          </label>
+          <textarea
+            rows={3}
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder="Explain why this item is being rejected..."
+            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30"
+          />
+          <div className="flex justify-end gap-2 mt-4">
+            <button
+              onClick={() => setRejectFor(null)}
+              className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleReject}
+              disabled={actionLoading || !rejectReason.trim()}
+              className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700 transition-colors disabled:opacity-50"
+            >
+              {actionLoading ? "Rejecting..." : "Confirm Reject"}
+            </button>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
