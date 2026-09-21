@@ -179,6 +179,11 @@ class ClearanceService
                 'comment' => $comment,
             ]);
             
+            // Chat history is bound to the active workflow step: once this step is
+            // approved, the conversation has served its purpose and is cleared, so
+            // the same office starts fresh if the student ever re-applies.
+            \App\Models\ChatMessage::where('clearance_item_id', $clearanceItemId)->delete();
+
             // Unlock next required step
             $this->unlockNextStep($clearanceItem);
             
@@ -296,6 +301,10 @@ class ClearanceService
                 throw new Exception("Can only resubmit rejected clearances");
             }
             
+            // Fresh review round: clear the previous round's conversation so the
+            // office and student start the resubmitted step with a clean chat.
+            \App\Models\ChatMessage::where('clearance_item_id', $clearanceItemId)->delete();
+
             // Update clearance item
             $clearanceItem->update([
                 'status' => 'pending',
