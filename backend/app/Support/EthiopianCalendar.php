@@ -26,13 +26,30 @@ class EthiopianCalendar
      */
     public static function fromGregorian(\DateTimeInterface $date): array
     {
-        $jd = gregoriantojd(
+        $jd = self::gregorianToJdn(
+            (int) $date->format('Y'),
             (int) $date->format('n'),
-            (int) $date->format('j'),
-            (int) $date->format('Y')
+            (int) $date->format('j')
         );
 
         return self::fromJdn($jd);
+    }
+
+    /**
+     * Gregorian calendar date → Julian Day Number.
+     *
+     * Fliegel–Van Flandern integer formula (used by PHP's own
+     * gregoriantojd), implemented in pure PHP so we don't depend on the
+     * optional calendar extension, which is missing on Railway.
+     */
+    private static function gregorianToJdn(int $y, int $m, int $d): int
+    {
+        $a = intdiv($m - 14, 12);
+
+        return intdiv(1461 * ($y + 4800 + $a), 4)
+            + intdiv(367 * ($m - 2 - 12 * $a), 12)
+            - intdiv(3 * intdiv($y + 4900 + $a, 100), 4)
+            + $d - 32075;
     }
 
     /**
