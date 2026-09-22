@@ -300,8 +300,8 @@ export default function StudentImportModal({ isOpen, onClose, onImported, config
   const downloadTemplate = () => {
     const header = ["student_id", "first_name", "middle_name", "last_name", "email", "phone", "college", "department", "program", "student_type", "admission_year", "academic_year"];
     const examples = [
-      ["SG/1234/16", "Abebe", "", "Kebede", "abebe.kebede@mwu.edu.et", "0912345678", "College of Computing", "Computer Science", "Bachelor of Science in Computer Science", "Regular", "2026", "2026"],
-      ["SG/1235/16", "Sara", "Tsion", "Alemu", "sara.alemu@mwu.edu.et", "0912345679", "College of Computing", "Computer Science", "Bachelor of Science in Computer Science", "Regular", "2026/27", "2026"],
+      ["SG/1234/16", "Abebe", "", "Kebede", "abebe.kebede@mwu.edu.et", "0912345678", "College of Computing", "Computer Science", "Bachelor of Science in Computer Science", "Regular", "2019", "2019/20"],
+      ["SG/1235/16", "Sara", "Tsion", "Alemu", "sara.alemu@mwu.edu.et", "0912345679", "College of Computing", "Computer Science", "Bachelor of Science in Computer Science", "Regular", "2019", "2019/20"],
     ];
     const csv = XLSX.utils.sheet_to_csv(XLSX.utils.aoa_to_sheet([header, ...examples]));
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });

@@ -141,13 +141,13 @@ export default function StudentDashboard() {
             {studentData?.academic_year && (
               <div>
                 <p className="text-blue-200 text-xs">Academic Year</p>
-                <p className="font-semibold">{studentData.academic_year}</p>
+                <p className="font-semibold">{studentData.academic_year} E.C.</p>
               </div>
             )}
             {studentData?.admission_year && (
               <div>
                 <p className="text-blue-200 text-xs">Batch</p>
-                <p className="font-semibold">{studentData.admission_year}</p>
+                <p className="font-semibold">{studentData.admission_year} E.C.</p>
               </div>
             )}
           </div>

@@ -148,7 +148,7 @@ export default function VerifyCertificate() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Academic Year</span>
-                    <span className="font-medium">{student.academic_year}</span>
+                    <span className="font-medium">{student.academic_year} E.C.</span>
                   </div>
                 </div>
               </div>

@@ -1,3 +1,54 @@
+// ─── Ethiopian (Ethiopic) calendar ─────────────────────────────────────────
+// The Ethiopian year starts on Meskerem 1 ≈ September 11 (or 12 before a
+// Gregorian leap year). These helpers let the UI show EC years alongside or
+// instead of Gregorian ones. Backend stores years in EC.
+const EC_NEW_YEAR_MONTH = 8; // September (0-indexed)
+const EC_NEW_YEAR_DEFAULT_DAY = 11;
+
+/** Ethiopian year for a JS Date (or current date when omitted). */
+export function ethiopianYear(date = new Date()) {
+  const gcYear = date.getFullYear();
+  const beforeNewYear =
+    date.getMonth() < EC_NEW_YEAR_MONTH ||
+    (date.getMonth() === EC_NEW_YEAR_MONTH &&
+      date.getDate() < EC_NEW_YEAR_DEFAULT_DAY);
+  return beforeNewYear ? gcYear - 8 : gcYear - 7;
+}
+
+/** Current Ethiopian year as a string, e.g. "2019". */
+export function currentEthiopianYear() {
+  return String(ethiopianYear());
+}
+
+/** Current Ethiopian academic year string, e.g. "2019/20". */
+export function currentEthiopianAcademicYear() {
+  const y = ethiopianYear();
+  return `${y}/${String((y + 1) % 100).padStart(2, "0")}`;
+}
+
+/** Format a Gregorian date string as an Ethiopian-calendar date label. */
+export function formatEthiopianDate(dateString) {
+  if (!dateString) return "—";
+  const d = new Date(dateString);
+  if (Number.isNaN(d.getTime())) return "—";
+  const months = [
+    "Meskerem", "Tikimt", "Hidar", "Tahsas", "Tir", "Yekatit",
+    "Megabit", "Miazia", "Ginbot", "Sene", "Hamle", "Nehase", "Pagume",
+  ];
+  const ecYear = ethiopianYear(d);
+  // Day-of-year offset from the EC new year (Sep 11 / 12 in GC leap-precursors).
+  const newYear = new Date(d.getFullYear(), EC_NEW_YEAR_MONTH, EC_NEW_YEAR_DEFAULT_DAY);
+  if (d < newYear) newYear.setFullYear(newYear.getFullYear() - 1);
+  const dayDiff = Math.floor((d - newYear) / 86400000);
+  const monthIdx = Math.floor(dayDiff / 30);
+  const day = (dayDiff % 30) + 1;
+  const label =
+    monthIdx < 12
+      ? `${months[monthIdx]} ${day}`
+      : `Pagume ${day}`;
+  return `${label}, ${ecYear} EC`;
+}
+
 export function formatDate(dateString) {
   if (!dateString) return "—";
   const d = new Date(dateString);

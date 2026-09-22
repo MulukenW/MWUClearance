@@ -6,7 +6,7 @@ import LoadingSpinner from "../../components/LoadingSpinner";
 import EmptyState from "../../components/EmptyState";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import StudentImportModal from "./StudentImportModal";
-import { getInitials } from "../../utils/helpers";
+import { getInitials, ethiopianYear, currentEthiopianYear } from "../../utils/helpers";
 
 export default function StudentManagement() {
   const [students, setStudents] = useState([]);
@@ -111,7 +111,7 @@ export default function StudentManagement() {
         department_id: data.department_id,
         program_id: data.program_id,
         student_type_id: data.student_type_id,
-        academic_year: new Date().getFullYear().toString(),
+        academic_year: currentEthiopianYear(),
       };
       
       let response;

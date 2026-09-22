@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Support\EthiopianCalendar;
 use App\Models\User;
 use App\Models\Student;
 use App\Models\ClearanceRequest;
@@ -627,7 +628,8 @@ class AdminController extends Controller
             'student_type_id' => 'required|exists:student_types,id',
             'academic_advisor_id' => 'nullable|exists:users,id',
             'academic_year' => 'nullable|string|max:20',
-            'admission_year' => 'nullable|integer|min:1990|max:' . (date('Y') + 1),
+            // Ethiopian-calendar years are small (e.g. 2019) — accept 1990..EC current+1
+            'admission_year' => 'nullable|integer|min:1990|max:' . (EthiopianCalendar::currentYear() + 1),
             'phone' => 'nullable|string|max:20',
         ]);
 
@@ -679,8 +681,8 @@ class AdminController extends Controller
                 'program_id' => $request->program_id,
                 'student_type_id' => $request->student_type_id,
                 'academic_advisor_id' => $request->academic_advisor_id,
-                'academic_year' => $request->academic_year ?? date('Y'),
-                'admission_year' => $request->admission_year ?? date('Y'),
+                'academic_year' => EthiopianCalendar::normalizeAcademicYearString($request->academic_year) ?? EthiopianCalendar::academicYear(),
+                'admission_year' => EthiopianCalendar::normalizeYear($request->admission_year) ?? EthiopianCalendar::currentYear(),
                 'phone' => $request->phone,
                 'email' => $request->email,
                 'status' => 'active',
@@ -870,13 +872,13 @@ class AdminController extends Controller
             $email = strtolower(trim((string) ($row['email'] ?? '')));
             $emailWasEmpty = $email === '';
             $phone = trim((string) ($row['phone'] ?? '')) ?: null;
-            $academicYear = trim((string) ($row['academic_year'] ?? '')) ?: date('Y');
+            $academicYear = EthiopianCalendar::normalizeAcademicYearString($row['academic_year'] ?? null) ?: EthiopianCalendar::academicYear();
 
             // Accept "2026", "2026/27", "2026-2027", or text containing a year: take the first 4-digit number
             $admissionRaw = trim((string) ($row['admission_year'] ?? ''));
-            $admissionYear = date('Y');
+            $admissionYear = EthiopianCalendar::currentYear();
             if ($admissionRaw !== '' && preg_match('/(19|20)\d{2}/', $admissionRaw, $m)) {
-                $admissionYear = $m[0];
+                $admissionYear = EthiopianCalendar::normalizeYear((int) $m[0]) ?? EthiopianCalendar::currentYear();
             }
 
             // ---- Required-field checks ----
@@ -1237,7 +1239,8 @@ class AdminController extends Controller
             'student_type_id' => 'sometimes|required|exists:student_types,id',
             'academic_advisor_id' => 'nullable|exists:users,id',
             'academic_year' => 'sometimes|required|string|max:20',
-            'admission_year' => 'sometimes|required|integer|min:1990|max:' . (date('Y') + 1),
+            // Ethiopian-calendar years are small — accept 1990..EC current+1
+            'admission_year' => 'sometimes|required|integer|min:1990|max:' . (EthiopianCalendar::currentYear() + 1),
             'phone' => 'nullable|string|max:20',
             'status' => 'sometimes|in:active,inactive,graduated,suspended',
             'email' => ['sometimes', 'nullable', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($student->user_id)],
@@ -1261,6 +1264,18 @@ class AdminController extends Controller
                 'student_type_id', 'academic_advisor_id',
                 'academic_year', 'admission_year', 'phone', 'status',
             ]);
+
+            // Years are stored in the Ethiopian calendar — normalize legacy
+            // Gregorian input (e.g. 2026 → 2019 EC) on every update.
+            if (array_key_exists('academic_year', $studentData) && $studentData['academic_year'] !== null) {
+                $studentData['academic_year'] = EthiopianCalendar::normalizeAcademicYearString($studentData['academic_year']);
+            }
+            if (array_key_exists('admission_year', $studentData) && $studentData['admission_year'] !== null) {
+                $normalized = EthiopianCalendar::normalizeYear($studentData['admission_year']);
+                if ($normalized !== null) {
+                    $studentData['admission_year'] = $normalized;
+                }
+            }
 
             // Student ID change (unique on students table)
             if ($request->filled('student_id') && $request->student_id !== $student->student_id) {

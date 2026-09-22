@@ -126,7 +126,7 @@ export default function NewClearance() {
           Back to Dashboard
         </button>
         <h1 className="text-3xl font-bold text-gray-800">New Clearance Request</h1>
-        <p className="text-gray-600 mt-1">Submit your clearance request for academic year {studentInfo?.academic_year}</p>
+        <p className="text-gray-600 mt-1">Submit your clearance request for academic year {studentInfo?.academic_year} E.C.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -189,11 +189,11 @@ export default function NewClearance() {
                 <div className="pt-2 mt-2 border-t border-white/20">
                   <div className="flex justify-between text-xs">
                     <span className="text-white/70">Academic Year</span>
-                    <span className="font-bold">{studentInfo.academic_year}</span>
+                    <span className="font-bold">{studentInfo.academic_year} E.C.</span>
                   </div>
                   <div className="flex justify-between text-xs mt-1">
                     <span className="text-white/70">Admission Year</span>
-                    <span className="font-bold">{studentInfo.admission_year}</span>
+                    <span className="font-bold">{studentInfo.admission_year} E.C.</span>
                   </div>
                 </div>
               </div>
