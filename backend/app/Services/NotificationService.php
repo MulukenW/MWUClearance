@@ -109,10 +109,20 @@ class NotificationService
         $student = $clearanceItem->clearanceRequest->student;
         $office = $clearanceItem->clearanceOffice;
         
-        // Find users assigned to this clearance office
+        // Find users assigned to this clearance office who are scoped to
+        // this student (department- or college-level officers).
         $users = User::where('clearance_office_id', $office->id)
             ->where('status', 'active')
-            ->get();
+            ->get()
+            ->filter(function ($user) use ($student) {
+                if ($user->department_id) {
+                    return $student->department_id === $user->department_id;
+                }
+                if ($user->college_id) {
+                    return $student->department && $student->department->college_id === $user->college_id;
+                }
+                return true; // unscoped officer — sees everyone
+            });
         
         foreach ($users as $user) {
             self::create(

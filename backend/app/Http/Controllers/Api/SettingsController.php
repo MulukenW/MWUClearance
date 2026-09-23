@@ -57,6 +57,8 @@ class SettingsController extends Controller
                 'phone' => 'nullable|string|max:50',
                 'email' => 'nullable|email|max:255',
                 'website' => 'nullable|string|max:255',
+                // Hex color for the app-wide brand (e.g. #042791); empty resets to default
+                'primary_color' => ['nullable', 'regex:/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/'],
             ]);
 
             $fields = ['university_name', 'system_name', 'address', 'phone', 'email', 'website'];
@@ -64,6 +66,15 @@ class SettingsController extends Controller
                 if ($request->has($field)) {
                     Setting::set($field, $request->$field, 'text', ucfirst(str_replace('_', ' ', $field)), 'general');
                 }
+            }
+
+            if ($request->has('primary_color')) {
+                $color = strtolower(trim((string) $request->primary_color));
+                // Expand shorthand #abc -> #aabbcc so consumers always get 6 digits
+                if (preg_match('/^#([0-9a-f])\1([0-9a-f])\2([0-9a-f])\3$/', $color, $m)) {
+                    $color = '#' . $m[1] . $m[1] . $m[2] . $m[2] . $m[3] . $m[3];
+                }
+                Setting::set('primary_color', $color !== '' ? $color : null, 'color', 'Primary Brand Color', 'branding');
             }
 
             return response()->json([
@@ -77,6 +88,23 @@ class SettingsController extends Controller
                 'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
+    }
+
+    /**
+     * Public: the app-wide primary color (hex) for theme theming.
+     * Returns the default when unset so callers never need special-casing.
+     */
+    public function primaryColor()
+    {
+        return response()
+            ->json([
+                'success' => true,
+                'data' => [
+                    'primary_color' => Setting::get('primary_color') ?: '#042791',
+                    'default_color' => '#042791',
+                ],
+            ])
+            ->header('Cache-Control', 'no-store');
     }
 
     /**

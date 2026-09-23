@@ -641,7 +641,7 @@ export default function OfficerDashboard() {
       </div>
       {/* Reject Modal (quick action) */}
       {rejectFor && (
-        <Modal onClose={() => setRejectFor(null)}>
+        <Modal isOpen={!!rejectFor} onClose={() => setRejectFor(null)}>
           <h3 className="text-lg font-bold text-gray-800 mb-1">
             Reject Clearance Item
           </h3>

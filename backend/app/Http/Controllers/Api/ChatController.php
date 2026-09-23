@@ -52,6 +52,14 @@ class ChatController extends Controller
             if ($student && $student->department_id && $student->department_id !== $user->department_id) {
                 abort(403, 'You are not authorized to access this conversation');
             }
+        } elseif ($user->college_id) {
+            // College-scoped officers (e.g. Continuing Education) chat with
+            // students from any department of their college.
+            $student = $item->clearanceRequest ? $item->clearanceRequest->student : null;
+            $studentCollegeId = ($student && $student->department) ? $student->department->college_id : null;
+            if ($studentCollegeId && $studentCollegeId !== $user->college_id) {
+                abort(403, 'You are not authorized to access this conversation');
+            }
         }
         return $item;
     }
@@ -192,6 +200,10 @@ class ChatController extends Controller
                     $query->whereHas('clearanceRequest.student', function ($q) use ($user) {
                         $q->where('department_id', $user->department_id);
                     });
+                } elseif ($user->college_id) {
+                    $query->whereHas('clearanceRequest.student.department', function ($q) use ($user) {
+                        $q->where('college_id', $user->college_id);
+                    });
                 }
             }
 
@@ -298,11 +310,21 @@ class ChatController extends Controller
         $excerpt = mb_substr($text, 0, 80);
 
         if ($sender->hasRole('student')) {
-            // Notify all active officers of the reviewing office
+            // Notify all active officers of the reviewing office who are
+            // scoped to this student (department- or college-level).
             if (!$office) return;
             $officers = \App\Models\User::where('clearance_office_id', $office->id)
                 ->where('status', 'active')
-                ->get();
+                ->get()
+                ->filter(function ($officer) use ($student) {
+                    if ($officer->department_id) {
+                        return $student->department_id === $officer->department_id;
+                    }
+                    if ($officer->college_id) {
+                        return $student->department && $student->department->college_id === $officer->college_id;
+                    }
+                    return true; // unscoped officer — sees everyone
+                });
             foreach ($officers as $officer) {
                 NotificationService::create(
                     $officer->id,

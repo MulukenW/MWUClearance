@@ -42,10 +42,11 @@ api.interceptors.response.use(
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
 export const authApi = {
-  login: (email, password) => api.post("/auth/login", { email, password }),
+  login: (email, password) => api.post("/auth/login", { login: email, password }),
   logout: () => api.post("/auth/logout"),
   me: () => api.get("/auth/me"),
   changePassword: (data) => api.post("/auth/change-password", data),
+  forceChangePassword: (data) => api.post("/auth/force-change-password", data),
   forgotPassword: (email) => api.post("/auth/forgot-password", { email }),
   resetPassword: (data) => api.post("/auth/reset-password", data),
 };

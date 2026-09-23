@@ -23,9 +23,20 @@ class User extends Authenticatable
         'password',
         'role_id',
         'department_id',
+        'college_id',
         'clearance_office_id',
         'status',
+        'must_change_password',
     ];
+
+    /**
+     * Scope constants for officer authorization:
+     * department-level roles see only their department's students,
+     * college-level roles see every department of their college,
+     * and officers with neither see everything (central offices).
+     */
+    public const DEPARTMENT_LEVEL_ROLES = ['advisor', 'department_head', 'laboratory', 'student'];
+    public const COLLEGE_LEVEL_ROLES = ['continuing_education'];
 
     /**
      * The attributes that should be hidden for serialization.
@@ -55,6 +66,11 @@ class User extends Authenticatable
     public function department()
     {
         return $this->belongsTo(Department::class);
+    }
+
+    public function college()
+    {
+        return $this->belongsTo(College::class);
     }
 
     public function clearanceOffice()

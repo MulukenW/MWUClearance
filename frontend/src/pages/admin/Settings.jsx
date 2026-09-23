@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { settingsApi } from "../../services/api";
+import { applyBrandColor } from "../../utils/branding";
 import LoadingSpinner from "../../components/LoadingSpinner";
 
 export default function Settings() {
@@ -22,6 +23,8 @@ export default function Settings() {
   });
   const [logoUrl, setLogoUrl] = useState(null);
   const [stampUrl, setStampUrl] = useState(null);
+  const [savedColor, setSavedColor] = useState("");
+  const [colorDraft, setColorDraft] = useState("#042791");
 
   const fetchSettings = () => {
     setLoading(true);
@@ -35,6 +38,11 @@ export default function Settings() {
           map[s.key] = s.value || "";
           if (s.key === "logo_path" && s.url) setLogoUrl(s.url);
           if (s.key === "stamp_path" && s.url) setStampUrl(s.url);
+          if (s.key === "primary_color") {
+            const color = s.value || "#042791";
+            setSavedColor(color);
+            setColorDraft(color);
+          }
         });
         setForm({
           university_name: map.university_name || "",
@@ -62,6 +70,54 @@ export default function Settings() {
       setMessage("Settings saved successfully.");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to save settings.");
+    }
+    setSaving(false);
+  };
+
+  const COLOR_PRESETS = [
+    { name: "MWU Blue", value: "#042791" },
+    { name: "Emerald", value: "#047857" },
+    { name: "Maroon", value: "#8b1e3f" },
+    { name: "Royal Purple", value: "#5b21b6" },
+    { name: "Teal", value: "#0f766e" },
+    { name: "Slate", value: "#334155" },
+  ];
+
+  const handleColorChange = (value) => {
+    setColorDraft(value);
+    // Live preview — restyle the whole app immediately
+    if (/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(value)) {
+      applyBrandColor(value);
+    }
+  };
+
+  const handleColorSave = async () => {
+    setSaving(true);
+    setMessage("");
+    setError("");
+    try {
+      await settingsApi.update({ primary_color: colorDraft.trim() });
+      setSavedColor(colorDraft.trim().toLowerCase());
+      applyBrandColor(colorDraft.trim());
+      setMessage("Brand color saved. It now applies to everyone.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to save brand color.");
+    }
+    setSaving(false);
+  };
+
+  const handleColorReset = async () => {
+    setSaving(true);
+    setMessage("");
+    setError("");
+    try {
+      await settingsApi.update({ primary_color: "" });
+      setSavedColor("");
+      setColorDraft("#042791");
+      applyBrandColor("#042791");
+      setMessage("Brand color reset to the MWU blue default.");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to reset brand color.");
     }
     setSaving(false);
   };
@@ -201,6 +257,119 @@ export default function Settings() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Brand Color */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100">
+            <h2 className="text-lg font-bold text-gray-800">Brand Color</h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Primary color used across the whole system — buttons, sidebar,
+              headers, and highlights
+            </p>
+          </div>
+          <div className="p-6">
+            {/* Live preview strip */}
+            <div className="rounded-2xl border border-gray-200 overflow-hidden mb-5">
+              <div
+                className="h-14 flex items-center px-4 text-white text-sm font-semibold"
+                style={{
+                  background: `linear-gradient(to right, ${colorDraft}, ${
+                    /^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(colorDraft)
+                      ? colorDraft
+                      : "#042791"
+                  })`,
+                }}
+              >
+                Sidebar & Headers preview
+              </div>
+              <div className="bg-white p-3 flex items-center gap-2">
+                <span
+                  className="px-3 py-1.5 rounded-lg text-white text-xs font-semibold"
+                  style={{ backgroundColor: colorDraft }}
+                >
+                  Button
+                </span>
+                <span
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style={{
+                    color: colorDraft,
+                    backgroundColor: `${colorDraft}1a`,
+                  }}
+                >
+                  Highlight text
+                </span>
+              </div>
+            </div>
+
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Primary color
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={
+                  /^#([0-9a-fA-F]{6})$/.test(colorDraft)
+                    ? colorDraft
+                    : "#042791"
+                }
+                onChange={(e) => handleColorChange(e.target.value)}
+                className="w-12 h-11 rounded-xl border border-gray-200 cursor-pointer bg-white p-1"
+                title="Pick a color"
+              />
+              <input
+                type="text"
+                value={colorDraft}
+                onChange={(e) => handleColorChange(e.target.value)}
+                placeholder="#042791"
+                className="flex-1 px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-mwu-blue/20 focus:border-mwu-blue outline-none transition-all bg-gray-50 focus:bg-white"
+              />
+            </div>
+
+            <div className="mt-4">
+              <p className="text-xs text-gray-400 mb-2">Quick picks</p>
+              <div className="flex flex-wrap gap-2">
+                {COLOR_PRESETS.map((p) => (
+                  <button
+                    key={p.value}
+                    onClick={() => handleColorChange(p.value)}
+                    title={p.name}
+                    className={`w-9 h-9 rounded-xl border-2 transition-all ${
+                      colorDraft.toLowerCase() === p.value
+                        ? "border-gray-800 scale-110"
+                        : "border-transparent hover:scale-105"
+                    }`}
+                    style={{ backgroundColor: p.value }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-6 pt-5 border-t border-gray-100 flex items-center justify-between gap-3">
+              <p className="text-xs text-gray-400">
+                {savedColor
+                  ? `Current: ${savedColor}`
+                  : "Using the MWU blue default"}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleColorReset}
+                  disabled={saving}
+                  className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                >
+                  Reset Default
+                </button>
+                <button
+                  onClick={handleColorSave}
+                  disabled={saving}
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-all shadow-sm"
+                  style={{ backgroundColor: colorDraft }}
+                >
+                  {saving ? "Saving..." : "Save Color"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Logo Management */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-100">

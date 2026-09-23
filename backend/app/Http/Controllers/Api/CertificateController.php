@@ -47,11 +47,17 @@ class CertificateController extends Controller
             $query->whereDate('issued_date', '<=', $request->to_date);
         }
 
-        // Department-based authorization for officers
+        // Department- or college-based authorization for officers
         $user = $request->user();
         if ($user->department_id && !$user->hasRole('admin')) {
             $query->whereHas('clearanceRequest.student', function ($q) use ($user) {
                 $q->where('department_id', $user->department_id);
+            });
+        } elseif ($user->college_id && !$user->hasRole('admin')) {
+            // College-scoped officers (e.g. Continuing Education) see every
+            // department of their college.
+            $query->whereHas('clearanceRequest.student.department', function ($q) use ($user) {
+                $q->where('college_id', $user->college_id);
             });
         }
 

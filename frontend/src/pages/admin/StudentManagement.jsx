@@ -6,12 +6,16 @@ import LoadingSpinner from "../../components/LoadingSpinner";
 import EmptyState from "../../components/EmptyState";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import StudentImportModal from "./StudentImportModal";
+import TablePagination from "../../components/TablePagination";
 import { getInitials, ethiopianYear, currentEthiopianYear } from "../../utils/helpers";
 
 export default function StudentManagement() {
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -38,19 +42,33 @@ export default function StudentManagement() {
   };
   const [form, setForm] = useState(emptyForm);
 
-  const fetchData = () => {
+  const fetchData = (targetPage = page) => {
     setLoading(true);
-    const params = {};
+    const params = { page: targetPage };
     if (search) params.search = search;
     studentsApi
       .list(params)
-      .then((res) => setStudents(res.data.data?.data || res.data.data || []))
+      .then((res) => {
+        setStudents(res.data.data?.data || res.data.data || []);
+        const meta = res.data.meta || {};
+        setLastPage(meta.last_page || 1);
+        setTotal(meta.total || 0);
+        if (meta.current_page && meta.current_page !== targetPage) {
+          setPage(meta.current_page);
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   };
 
+  // Refetch on mount and whenever page / search change.
+  // Search changes also reset page to 1.
   useEffect(() => {
-    fetchData();
+    fetchData(page);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, search]);
+
+  useEffect(() => {
     adminApi
       .systemConfig()
       .then((res) => {
@@ -133,7 +151,7 @@ export default function StudentManagement() {
         setShowModal(false);
       }
       
-      fetchData();
+      fetchData(page);
     } catch (err) {
       const errorMsg = err.response?.data?.message || "Failed to save student.";
       const errors = err.response?.data?.errors;
@@ -151,7 +169,7 @@ export default function StudentManagement() {
     try {
       await adminApi.deleteStudent(deleteTarget.id);
       setDeleteTarget(null);
-      fetchData();
+      fetchData(page);
     } catch {
       /* ignore */
     }
@@ -246,7 +264,10 @@ export default function StudentManagement() {
       <div className="mb-4">
         <SearchBar
           value={search}
-          onChange={setSearch}
+          onChange={(v) => {
+            setSearch(v);
+            setPage(1);
+          }}
           placeholder="Search students..."
         />
       </div>
@@ -359,13 +380,14 @@ export default function StudentManagement() {
               </tbody>
             </table>
           </div>
-          <div className="px-5 py-3 bg-gray-50/50 border-t border-gray-100 text-xs text-gray-500">
-            Showing{" "}
-            <span className="font-semibold text-gray-700">
-              {students.length}
-            </span>{" "}
-            students
-          </div>
+          <TablePagination
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            showingCount={students.length}
+            label="students"
+            onPageChange={setPage}
+          />
         </div>
       )}
 
@@ -705,7 +727,7 @@ export default function StudentManagement() {
       <StudentImportModal
         isOpen={showImport}
         onClose={() => setShowImport(false)}
-        onImported={fetchData}
+        onImported={() => fetchData(page)}
         config={config}
       />
 

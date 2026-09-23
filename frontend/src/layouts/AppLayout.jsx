@@ -296,8 +296,7 @@ function Sidebar({ mobileOpen, onClose }) {
         />
       )}
       <aside
-        className={`w-64 min-h-screen flex flex-col fixed left-0 top-0 shadow-xl z-30 transform transition-transform duration-200 md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
-        style={{ backgroundColor: "#042791" }}
+        className={`w-64 min-h-screen flex flex-col fixed left-0 top-0 shadow-xl z-30 transform transition-transform duration-200 md:translate-x-0 bg-mwu-blue ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         {/* Logo */}
         <div className="px-5 py-5 border-b border-white/8">

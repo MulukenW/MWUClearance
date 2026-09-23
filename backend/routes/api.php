@@ -50,6 +50,7 @@ Route::get('/certificate/{id}/view', [CertificateController::class, 'publicView'
 // Public logo endpoint (serves current logo from settings or default SVG)
 Route::get('/logo', [SettingsController::class, 'logo']);
 Route::get('/stamp', [SettingsController::class, 'stamp']);
+Route::get('/branding/color', [SettingsController::class, 'primaryColor']);
 
 // WebAuthn public login routes
 Route::prefix('webauthn')->group(function () {
@@ -71,6 +72,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/refresh', [AuthController::class, 'refresh']);
         Route::post('/check-permission', [AuthController::class, 'checkPermission']);
         Route::post('/change-password', [AuthController::class, 'changePassword']);
+        Route::post('/force-change-password', [AuthController::class, 'forceChangePassword']);
     });
 
     // ---- WebAuthn / Passkey routes (authenticated) ----

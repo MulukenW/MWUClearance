@@ -6,25 +6,7 @@ import LoadingSpinner from "../../components/LoadingSpinner";
 import EmptyState from "../../components/EmptyState";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { formatDate, getInitials } from "../../utils/helpers";
-
-/** Compact page list with ellipses, e.g. [1, 2, "…", 6, 7, 8, "…", 12, 13] */
-function getPageNumbers(current, last) {
-  if (last <= 7) return Array.from({ length: last }, (_, i) => i + 1);
-  const wanted = new Set(
-    [1, 2, current - 1, current, current + 1, last - 1, last].filter(
-      (p) => p >= 1 && p <= last,
-    ),
-  );
-  const sorted = [...wanted].sort((a, b) => a - b);
-  const out = [];
-  let prev = 0;
-  for (const p of sorted) {
-    if (p - prev > 1) out.push("…");
-    out.push(p);
-    prev = p;
-  }
-  return out;
-}
+import TablePagination from "../../components/TablePagination";
 
 export default function UserManagement() {
   const [users, setUsers] = useState([]);
@@ -44,6 +26,7 @@ export default function UserManagement() {
     password_confirmation: "",
     role_id: "",
     department_id: "",
+    college_id: "",
     clearance_office_id: "",
     status: "active",
   });
@@ -59,9 +42,15 @@ export default function UserManagement() {
     "laboratory",
     "student",
   ];
+  // College-scoped roles see every department of their assigned college
+  // (e.g. Continuing Education Officer).
+  const collegeLevelRoles = ["continuing_education"];
+  const [colleges, setColleges] = useState([]);
   const selectedRole = roles.find((r) => String(r.id) === String(form.role_id));
   const needsDepartment =
     selectedRole && departmentLevelRoles.includes(selectedRole.code);
+  const needsCollege =
+    selectedRole && collegeLevelRoles.includes(selectedRole.code);
 
   const fetchUsers = (targetPage = page) => {
     setLoading(true);
@@ -99,6 +88,7 @@ export default function UserManagement() {
         const cfg = res.data.data || {};
         setRoles(cfg.roles || []);
         setDepartments(cfg.departments || []);
+        setColleges(cfg.colleges || []);
         setClearanceOffices(cfg.clearance_offices || []);
       })
       .catch(() => {});
@@ -113,6 +103,7 @@ export default function UserManagement() {
       password_confirmation: "",
       role_id: "",
       department_id: "",
+      college_id: "",
       clearance_office_id: "",
       status: "active",
     });
@@ -129,6 +120,7 @@ export default function UserManagement() {
       password_confirmation: "",
       role_id: u.role_id || "",
       department_id: u.department_id || "",
+      college_id: u.college_id || "",
       clearance_office_id: u.clearance_office_id || "",
       status: u.status || "active",
     });
@@ -371,73 +363,14 @@ export default function UserManagement() {
               </tbody>
             </table>
           </div>
-          <div className="px-5 py-3 bg-gray-50/50 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <p className="text-xs text-gray-500">
-              Showing{" "}
-              <span className="font-semibold text-gray-700">{users.length}</span>{" "}
-              of{" "}
-              <span className="font-semibold text-gray-700">{total}</span> users
-              {lastPage > 1 && (
-                <span className="text-gray-400">
-                  {" "}· Page {page} of {lastPage}
-                </span>
-              )}
-            </p>
-            {lastPage > 1 && (
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setPage(1)}
-                  disabled={page === 1}
-                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                >
-                  First
-                </button>
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page === 1}
-                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                >
-                  ← Prev
-                </button>
-                {getPageNumbers(page, lastPage).map((p, idx) =>
-                  p === "…" ? (
-                    <span
-                      key={`ellipsis-${idx}`}
-                      className="px-1.5 text-gray-400"
-                    >
-                      …
-                    </span>
-                  ) : (
-                    <button
-                      key={p}
-                      onClick={() => setPage(p)}
-                      className={`min-w-[28px] px-2 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                        p === page
-                          ? "bg-mwu-blue text-white border-mwu-blue shadow-sm"
-                          : "bg-white border-gray-200 hover:bg-gray-50"
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  ),
-                )}
-                <button
-                  onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
-                  disabled={page === lastPage}
-                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                >
-                  Next →
-                </button>
-                <button
-                  onClick={() => setPage(lastPage)}
-                  disabled={page === lastPage}
-                  className="px-2.5 py-1.5 rounded-lg text-xs font-medium border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                >
-                  Last
-                </button>
-              </div>
-            )}
-          </div>
+          <TablePagination
+            page={page}
+            lastPage={lastPage}
+            total={total}
+            showingCount={users.length}
+            label="users"
+            onPageChange={setPage}
+          />
         </div>
       )}
 
@@ -522,6 +455,7 @@ export default function UserManagement() {
                   ...form,
                   role_id: e.target.value,
                   department_id: "",
+                  college_id: "",
                   clearance_office_id: "",
                 })
               }
@@ -562,7 +496,32 @@ export default function UserManagement() {
               </p>
             </div>
           )}
-          {selectedRole && !needsDepartment && (
+          {needsCollege && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                College <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={form.college_id}
+                onChange={(e) =>
+                  setForm({ ...form, college_id: e.target.value })
+                }
+                className={inputClass}
+              >
+                <option value="">Select college</option>
+                {colleges.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-400 mt-1">
+                College-level roles (e.g. Continuing Education Officer) handle
+                students from every department of this college
+              </p>
+            </div>
+          )}
+          {selectedRole && !needsDepartment && !needsCollege && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Clearance Office

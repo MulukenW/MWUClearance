@@ -36,12 +36,28 @@ class ClearanceController extends Controller
             return false;
         }
 
-        // If the officer has a department, the student must belong to it
+        $student = $item->clearanceRequest
+            ? $item->clearanceRequest->student
+            : null;
+
+        // Department-scoped officers (advisor, dept head, laboratory): the
+        // student must belong to their department.
         if ($user->department_id) {
-            $studentDeptId = $item->clearanceRequest
-                ? optional($item->clearanceRequest->student)->department_id
-                : null;
+            $studentDeptId = $student ? $student->department_id : null;
             if ($studentDeptId && $studentDeptId !== $user->department_id) {
+                return false;
+            }
+
+            return true;
+        }
+
+        // College-scoped officers (e.g. Continuing Education): the student's
+        // department must belong to their college.
+        if ($user->college_id) {
+            $studentCollegeId = ($student && $student->department)
+                ? $student->department->college_id
+                : null;
+            if ($studentCollegeId && $studentCollegeId !== $user->college_id) {
                 return false;
             }
         }
@@ -58,6 +74,12 @@ class ClearanceController extends Controller
         if ($user->department_id) {
             $query->whereHas('clearanceRequest.student', function ($q) use ($user) {
                 $q->where('department_id', $user->department_id);
+            });
+        } elseif ($user->college_id) {
+            // College-scoped officers (e.g. Continuing Education) see students
+            // from every department of their college.
+            $query->whereHas('clearanceRequest.student.department', function ($q) use ($user) {
+                $q->where('college_id', $user->college_id);
             });
         }
         return $query;

@@ -10,6 +10,7 @@ import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import ChangePassword from "./pages/ChangePassword";
+import ForceChangePassword from "./pages/ForceChangePassword";
 
 // Student pages
 import StudentDashboard from "./pages/student/Dashboard";
@@ -52,6 +53,17 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+          </Route>
+
+          {/* Authenticated: Force password change (e.g. student first login) */}
+          <Route
+            element={
+              <ProtectedRoute>
+                <AuthLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="/force-change-password" element={<ForceChangePassword />} />
           </Route>
 
           {/* Public: Certificate verification (no auth layout) */}

@@ -24,9 +24,13 @@ export default function Login() {
     setError("");
     setLoading(true);
     try {
-      const user = await login(email, password);
-      const dashPath = getDashboardPath(user.role?.code);
-      navigate(dashPath, { replace: true });
+      const { user, must_change_password } = await login(email, password);
+      if (must_change_password) {
+        navigate("/force-change-password", { replace: true });
+      } else {
+        const dashPath = getDashboardPath(user.role?.code);
+        navigate(dashPath, { replace: true });
+      }
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -98,17 +102,17 @@ export default function Login() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
+          <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Email
+            Email or Student ID
           </label>
           <input
-            type="email"
+            type="text"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
             className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-mwu-blue focus:border-transparent outline-none transition-all"
-            placeholder="username@mwu.edu.et"
+            placeholder="username@mwu.edu.et or Student ID"
           />
         </div>
 

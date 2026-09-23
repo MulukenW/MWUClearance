@@ -119,11 +119,17 @@ class ReportsController extends Controller
             $query->whereDate('submitted_at', '<=', $request->to_date);
         }
 
-        // Department-based access for non-admins
+        // Department- or college-based access for non-admins
         $user = $request->user();
         if ($user->department_id && !$user->hasRole('admin')) {
             $query->whereHas('student', function ($q) use ($user) {
                 $q->where('department_id', $user->department_id);
+            });
+        } elseif ($user->college_id && !$user->hasRole('admin')) {
+            // College-scoped officers (e.g. Continuing Education) see every
+            // department of their college.
+            $query->whereHas('student.department', function ($q) use ($user) {
+                $q->where('college_id', $user->college_id);
             });
         }
 

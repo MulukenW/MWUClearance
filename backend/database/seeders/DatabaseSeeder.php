@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             CollegeSeeder::class,
             DepartmentSeeder::class,
             ProgramSeeder::class,
+            MwuAcademicStructureSeeder::class,
             UserSeeder::class,
             StudentSeeder::class,
         ]);

@@ -20,8 +20,10 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'email_verified_at' => $this->email_verified_at,
             'status' => $this->status,
+            'must_change_password' => (bool) $this->must_change_password,
             'role_id' => $this->role_id,
             'department_id' => $this->department_id,
+            'college_id' => $this->college_id,
             'clearance_office_id' => $this->clearance_office_id,
 
             // Role (single role via role_id foreign key)
@@ -50,6 +52,15 @@ class UserResource extends JsonResource
                             ];
                         }
                     ),
+                ];
+            }),
+
+            // College relationship (college-scoped officers, e.g. Continuing Education)
+            'college' => $this->when($this->relationLoaded('college') && $this->college, function () {
+                return [
+                    'id' => $this->college->id,
+                    'name' => $this->college->name,
+                    'code' => $this->college->code,
                 ];
             }),
 

@@ -26,13 +26,22 @@ class AuthController extends Controller
     public function login(LoginRequest $request)
     {
         try {
-            // Find user by email
-            $user = User::where('email', $request->email)->first();
+            $loginValue = $request->input('login');
+
+            // Try to find user by email first, then by student_id via student relationship
+            $user = User::where('email', $loginValue)->first();
+
+            if (!$user) {
+                // Attempt lookup via student_id
+                $user = User::whereHas('student', function ($query) use ($loginValue) {
+                    $query->where('student_id', $loginValue);
+                })->first();
+            }
 
             // Check if user exists and password is correct
             if (!$user || !Hash::check($request->password, $user->password)) {
                 // Log failed login attempt
-                AuditLogService::logAuth('failed_login', null, $request->email);
+                AuditLogService::logAuth('failed_login', null, $loginValue);
 
                 return response()->json([
                     'success' => false,
@@ -56,9 +65,6 @@ class AuthController extends Controller
                 ], 403);
             }
 
-            // Delete old tokens (optional - keeps only one active session)
-            // $user->tokens()->delete();
-
             // Create token
             $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -72,6 +78,7 @@ class AuthController extends Controller
                     'user' => new UserResource($user),
                     'token' => $token,
                     'token_type' => 'Bearer',
+                    'must_change_password' => (bool) $user->must_change_password,
                 ]
             ], 200);
 
@@ -130,6 +137,7 @@ class AuthController extends Controller
             $user->load([
                 'role.permissions',
                 'department.college',
+                'college',
                 'clearanceOffice',
                 'student.studentType',
                 'student.department.college',
@@ -385,6 +393,65 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Password changed successfully.',
+        ], 200);
+    }
+
+    /**
+     * Force password change for users who must change password (e.g. students on first login).
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function forceChangePassword(Request $request)
+    {
+        $request->validate([
+            'current_password' => 'nullable|string',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $user = $request->user();
+
+        if (!$user->must_change_password) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Password change not required.',
+            ], 200);
+        }
+
+        // For students with generated/default passwords, current_password is optional
+        if ($user->hasRole('student') && !$request->filled('current_password')) {
+            // Allow password change without current password for students on first login
+        } else {
+            if (!$request->filled('current_password')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Current password is required.',
+                ], 422);
+            }
+
+            if (!Hash::check($request->current_password, $user->password)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Current password is incorrect.',
+                ], 400);
+            }
+        }
+
+        $user->update([
+            'password' => Hash::make($request->password),
+            'must_change_password' => false,
+        ]);
+
+        AuditLogService::log(
+            'password_force_changed',
+            'Password force changed',
+            'App\Models\User',
+            $user->id
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password changed successfully. Please login again.',
         ], 200);
     }
 }

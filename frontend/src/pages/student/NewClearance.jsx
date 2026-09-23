@@ -41,13 +41,16 @@ export default function NewClearance() {
           };
           setStudentInfo(info);
 
-          // Check if student already has a clearance request in this academic year
+          // Check if student already has a clearance request in this academic year.
+          // Rejected requests don't block a new one — the student can re-request.
           studentClearanceApi
             .list()
             .then((listRes) => {
               const requests = listRes.data.data || [];
               const existing = requests.find(
-                (r) => r.academic_year === student.academic_year,
+                (r) =>
+                  r.academic_year === student.academic_year &&
+                  r.status !== "rejected",
               );
               if (existing) {
                 setAlreadyRequested(true);

@@ -43,9 +43,11 @@ class ClearanceService
             // Get student's academic year (semester)
             $academicYear = $student->academic_year;
             
-            // Check if student already has a clearance request in this academic year (semester)
+            // Check if student already has a clearance request in this academic year (semester).
+            // Rejected requests don't count — the student must be able to re-request.
             $existingInSemester = ClearanceRequest::where('student_id', $studentId)
                 ->where('academic_year', $academicYear)
+                ->whereNotIn('status', ['rejected'])
                 ->first();
             
             if ($existingInSemester) {

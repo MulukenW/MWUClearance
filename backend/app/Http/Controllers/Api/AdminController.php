@@ -178,7 +178,7 @@ class AdminController extends Controller
      */
     public function users(Request $request)
     {
-        $query = User::with(['role', 'department.college', 'clearanceOffice']);
+        $query = User::with(['role', 'department.college', 'college', 'clearanceOffice']);
 
         // Search filter
         if ($request->filled('search')) {
@@ -233,7 +233,7 @@ class AdminController extends Controller
      */
     public function getUser($id)
     {
-        $user = User::with(['role', 'department.college', 'clearanceOffice', 'student'])
+        $user = User::with(['role', 'department.college', 'college', 'clearanceOffice', 'student'])
             ->findOrFail($id);
 
         return response()->json([
@@ -254,6 +254,7 @@ class AdminController extends Controller
             'role_id' => 'required_without:role_code|nullable|exists:roles,id',
             'role_code' => 'required_without:role_id|nullable|exists:roles,code',
             'department_id' => 'nullable|exists:departments,id',
+            'college_id' => 'nullable|exists:colleges,id',
             'clearance_office_id' => 'nullable|exists:clearance_offices,id',
             'status' => 'sometimes|in:active,inactive,suspended',
         ]);
@@ -288,6 +289,7 @@ class AdminController extends Controller
                 'password' => Hash::make($request->password),
                 'role_id' => $role->id,
                 'department_id' => $request->department_id,
+                'college_id' => $request->college_id,
                 'clearance_office_id' => $officeId,
                 'status' => $request->get('status', 'active'),
             ]);
@@ -313,7 +315,7 @@ class AdminController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'User created successfully',
-                'data' => new UserResource($user->load('role', 'department', 'clearanceOffice')),
+                'data' => new UserResource($user->load('role', 'department', 'college', 'clearanceOffice')),
             ], 201);
         } catch (Exception $e) {
             DB::rollBack();
@@ -338,6 +340,7 @@ class AdminController extends Controller
             'role_id' => 'nullable|exists:roles,id',
             'role_code' => 'nullable|exists:roles,code',
             'department_id' => 'nullable|exists:departments,id',
+            'college_id' => 'nullable|exists:colleges,id',
             'clearance_office_id' => 'nullable|exists:clearance_offices,id',
             'status' => 'sometimes|in:active,inactive,suspended',
         ]);
@@ -352,7 +355,7 @@ class AdminController extends Controller
 
         DB::beginTransaction();
         try {
-            $userData = $request->only(['name', 'email', 'department_id', 'clearance_office_id', 'status']);
+            $userData = $request->only(['name', 'email', 'department_id', 'college_id', 'clearance_office_id', 'status']);
 
             if ($request->filled('password')) {
                 $userData['password'] = Hash::make($request->password);
@@ -393,7 +396,7 @@ class AdminController extends Controller
                 "User updated: {$user->email}",
                 'App\Models\User',
                 $user->id,
-                $request->only(['name', 'email', 'role_code', 'department_id', 'status'])
+                $request->only(['name', 'email', 'role_code', 'department_id', 'college_id', 'status'])
             );
 
             DB::commit();
@@ -667,6 +670,7 @@ class AdminController extends Controller
                 'role_id' => $studentRole->id,
                 'department_id' => $request->department_id,
                 'status' => 'active',
+                'must_change_password' => $generatedPassword !== null,
             ]);
 
             // Create student record
@@ -711,7 +715,7 @@ class AdminController extends Controller
                 $response['credentials'] = [
                     'email' => $request->email,
                     'password' => $generatedPassword,
-                    'message' => 'Login credentials have been automatically generated. Please share these with the student.',
+                    'message' => 'Login credentials have been automatically generated. The student will be forced to change their password on first login.',
                 ];
             }
 
@@ -1131,6 +1135,7 @@ class AdminController extends Controller
                     'role_id' => $studentRole->id,
                     'department_id' => $departmentId,
                     'status' => 'active',
+                    'must_change_password' => true,
                 ]);
 
                 $student = Student::create([

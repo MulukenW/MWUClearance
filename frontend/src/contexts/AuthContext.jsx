@@ -46,13 +46,13 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     const res = await authApi.login(email, password);
-    const { user: userData, token: newToken } = res.data.data;
+    const { user: userData, token: newToken, must_change_password } = res.data.data;
     localStorage.setItem("token", newToken);
     localStorage.setItem("user", JSON.stringify(userData));
     localStorage.setItem("mwu_last_active_time", String(Date.now()));
     setToken(newToken);
     setUser(userData);
-    return userData;
+    return { user: userData, must_change_password };
   }, []);
 
   const logout = useCallback(async () => {
