@@ -29,6 +29,34 @@ use Exception;
 class AdminController extends Controller
 {
     /**
+     * Resolve a student type code based on the student ID prefix.
+     * UG  = undergraduate:  UGR → regular, UGE → extension, UGS → summer, UGW → winter
+     * MSc = postgraduate:   MScR → regular, MScE → extension, MScS → summer, MScW → winter
+     */
+    protected static function resolveStudentTypeCode(string $studentId): ?string
+    {
+        if (empty($studentId)) {
+            return null;
+        }
+
+        $id = strtoupper(trim($studentId));
+
+        if (str_starts_with($id, 'MSC')) {
+            $suffix = strlen($id) > 3 ? $id[3] : '';
+            $map = ['R' => 'regular', 'E' => 'extension', 'S' => 'summer', 'W' => 'winter'];
+            return $map[$suffix] ?? null;
+        }
+
+        if (str_starts_with($id, 'UG')) {
+            $suffix = strlen($id) > 2 ? $id[2] : '';
+            $map = ['R' => 'regular', 'E' => 'extension', 'S' => 'summer', 'W' => 'winter'];
+            return $map[$suffix] ?? null;
+        }
+
+        return null;
+    }
+
+    /**
      * Get comprehensive dashboard statistics
      */
     public function dashboard()
@@ -628,7 +656,7 @@ class AdminController extends Controller
                     $fail('The selected program must belong to the selected department.');
                 }
             }],
-            'student_type_id' => 'required|exists:student_types,id',
+            'student_type_id' => 'nullable|exists:student_types,id',
             'academic_advisor_id' => 'nullable|exists:users,id',
             'academic_year' => 'nullable|string|max:20',
             // Ethiopian-calendar years are small (e.g. 2019) — accept 1990..EC current+1
@@ -650,6 +678,15 @@ class AdminController extends Controller
             $studentRole = Role::where('code', 'student')->first();
             if (!$studentRole) {
                 throw new Exception('Student role not found in the system');
+            }
+
+            // Resolve student_type_id from student_id prefix if not explicitly provided
+            $studentTypeId = $request->student_type_id;
+            if (empty($studentTypeId)) {
+                $typeCode = self::resolveStudentTypeCode($request->student_id);
+                if ($typeCode) {
+                    $studentTypeId = StudentType::where('code', $typeCode)->value('id');
+                }
             }
 
             // Auto-generate password if not provided
@@ -683,7 +720,7 @@ class AdminController extends Controller
                 'college_id' => $request->college_id,
                 'department_id' => $request->department_id,
                 'program_id' => $request->program_id,
-                'student_type_id' => $request->student_type_id,
+                 'student_type_id' => $studentTypeId,
                 'academic_advisor_id' => $request->academic_advisor_id,
                 'academic_year' => EthiopianCalendar::normalizeAcademicYearString($request->academic_year) ?? EthiopianCalendar::academicYear(),
                 'admission_year' => EthiopianCalendar::normalizeYear($request->admission_year) ?? EthiopianCalendar::currentYear(),
@@ -1075,7 +1112,14 @@ class AdminController extends Controller
                 }
                 if ($typeId === null) $errors[] = "Student type '$typeKey' not found";
             } else {
-                $errors[] = 'Student type is required';
+                // Auto-resolve student type from student_id prefix when not in the file
+                $typeCode = self::resolveStudentTypeCode($studentId);
+                if ($typeCode) {
+                    $typeId = StudentType::where('code', $typeCode)->value('id');
+                }
+                if ($typeId === null) {
+                    $errors[] = 'Student type is required (not found in file and could not be resolved from Student ID prefix)';
+                }
             }
 
             // ---- Duplicates inside the file ----

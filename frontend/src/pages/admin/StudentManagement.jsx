@@ -7,7 +7,7 @@ import EmptyState from "../../components/EmptyState";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import StudentImportModal from "./StudentImportModal";
 import TablePagination from "../../components/TablePagination";
-import { getInitials, ethiopianYear, currentEthiopianYear } from "../../utils/helpers";
+import { getInitials, ethiopianYear, currentEthiopianYear, resolveStudentTypeFromId } from "../../utils/helpers";
 
 export default function StudentManagement() {
   const [students, setStudents] = useState([]);
@@ -417,14 +417,33 @@ export default function StudentManagement() {
           </div>
         )}
         <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-          <div>
+           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Student ID
+              <span className="text-gray-400 font-normal block text-xs mt-0.5">
+                (e.g. UGRxxx → Regular, UGE → Extension, UGS → Summer, UGW → Winter; MSc prefix for postgrad)
+              </span>
             </label>
             <input
               type="text"
               value={form.student_id}
-              onChange={(e) => setForm({ ...form, student_id: e.target.value })}
+              onChange={(e) => {
+                const raw = e.target.value;
+                setForm({ ...form, student_id: raw });
+                const typeCode = resolveStudentTypeFromId(raw);
+                if (typeCode) {
+                  const matchedType = config.studentTypes.find(
+                    (t) => t.code === typeCode,
+                  );
+                  if (matchedType) {
+                    setForm((prev) => ({
+                      ...prev,
+                      student_id: raw,
+                      student_type_id: matchedType.id,
+                    }));
+                  }
+                }
+              }}
               className={inputClass}
             />
           </div>

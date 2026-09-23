@@ -124,3 +124,29 @@ export function getDashboardPath(roleCode) {
   if (isOfficerRole(roleCode)) return "/officer/dashboard";
   return "/login";
 }
+
+export function resolveStudentTypeFromId(studentId) {
+  if (!studentId) return null;
+  const id = studentId.toUpperCase().trim();
+  if (id.startsWith("MSc")) {
+    const suffix = id.charAt(3);
+    switch (suffix) {
+      case "R": return "regular";
+      case "E": return "extension";
+      case "S": return "summer";
+      case "W": return "winter";
+      default: return null;
+    }
+  }
+  if (id.startsWith("UG")) {
+    const suffix = id.charAt(2);
+    switch (suffix) {
+      case "R": return "regular";
+      case "E": return "extension";
+      case "S": return "summer";
+      case "W": return "winter";
+      default: return null;
+    }
+  }
+  return null;
+}

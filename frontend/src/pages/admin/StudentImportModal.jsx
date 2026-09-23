@@ -300,8 +300,9 @@ export default function StudentImportModal({ isOpen, onClose, onImported, config
   const downloadTemplate = () => {
     const header = ["student_id", "first_name", "middle_name", "last_name", "email", "phone", "college", "department", "program", "student_type", "admission_year", "academic_year"];
     const examples = [
-      ["SG/1234/16", "Abebe", "", "Kebede", "abebe.kebede@mwu.edu.et", "0912345678", "College of Computing", "Computer Science", "Bachelor of Science in Computer Science", "Regular", "2019", "2019/20"],
-      ["SG/1235/16", "Sara", "Tsion", "Alemu", "sara.alemu@mwu.edu.et", "0912345679", "College of Computing", "Computer Science", "Bachelor of Science in Computer Science", "Regular", "2019", "2019/20"],
+      ["UGR123416", "Abebe", "", "Kebede", "abebe.kebede@mwu.edu.et", "0912345678", "College of Computing", "Computer Science", "Bachelor of Science in Computer Science", "Regular", "2019", "2019/20"],
+      ["UGE123516", "Sara", "Tsion", "Alemu", "sara.alemu@mwu.edu.et", "0912345679", "College of Computing", "Computer Science", "Bachelor of Science in Computer Science", "Extension", "2019", "2019/20"],
+      ["MScR123616", "Tadesse", "", "Girma", "tadesse.girma@mwu.edu.et", "0912345680", "College of Business & Economics", "Accounting & Finance", "Master of Accounting and Finance", "Regular", "2020", "2020/21"],
     ];
     const csv = XLSX.utils.sheet_to_csv(XLSX.utils.aoa_to_sheet([header, ...examples]));
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
@@ -383,6 +384,7 @@ export default function StudentImportModal({ isOpen, onClose, onImported, config
           <p className="text-sm text-gray-600 mb-4">
             Upload a spreadsheet of students. The header row is auto-detected and columns can be mapped manually —
             the template shows the exact format. Each imported student gets a login account with an auto-generated password.
+            Student type is auto-detected from the Student ID prefix (e.g. UGR/UGE/UGS/UGW for undergrad, MScR/MSCE/MSCS/MScW for postgrad).
           </p>
           <div
             onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
