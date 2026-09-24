@@ -34,6 +34,7 @@ export default function ProgramManagement() {
         { value: "undergraduate", label: "Undergraduate" },
         { value: "graduate", label: "Graduate" },
         { value: "postgraduate", label: "Postgraduate" },
+        { value: "phd", label: "PhD" },
         { value: "diploma", label: "Diploma" },
         { value: "certificate", label: "Certificate" },
       ],

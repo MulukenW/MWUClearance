@@ -16,6 +16,7 @@ class Program extends Model
         'description',
         'level',
         'is_active',
+        'duration_years',
     ];
 
     protected $casts = [

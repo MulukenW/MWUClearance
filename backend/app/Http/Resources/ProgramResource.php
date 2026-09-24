@@ -18,9 +18,10 @@ class ProgramResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'code' => $this->code,
-            'level' => $this->level,
-            'description' => $this->description,
-            'is_active' => (bool) $this->is_active,
+             'level' => $this->level,
+             'description' => $this->description,
+             'is_active' => (bool) $this->is_active,
+             'duration_years' => $this->duration_years,
             'department' => $this->when($this->relationLoaded('department') && $this->department, function () {
                 return [
                     'id' => $this->department->id,

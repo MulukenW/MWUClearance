@@ -332,7 +332,7 @@ class AdminManagementController extends Controller
             return $validator;
         }
 
-        $program = Program::create($request->only(['department_id', 'name', 'code', 'description', 'level', 'is_active']));
+        $program = Program::create($request->only(['department_id', 'name', 'code', 'description', 'level', 'is_active', 'duration_years']));
 
         AuditLogService::log('program_created', "Program created: {$program->name}", 'App\Models\Program', $program->id);
 
@@ -352,7 +352,7 @@ class AdminManagementController extends Controller
             return $validator;
         }
 
-        $program->update($request->only(['department_id', 'name', 'code', 'description', 'level', 'is_active']));
+        $program->update($request->only(['department_id', 'name', 'code', 'description', 'level', 'is_active', 'duration_years']));
 
         AuditLogService::log('program_updated', "Program updated: {$program->name}", 'App\Models\Program', $program->id);
 
@@ -715,15 +715,35 @@ class AdminManagementController extends Controller
 
     protected function validateProgram(Request $request, $id = null)
     {
-        $uniqueName = $id ? 'unique:programs,name,' . $id : 'unique:programs,name';
-        $uniqueCode = $id ? 'unique:programs,code,' . $id : 'unique:programs,code';
+        // Determine the department_id to scope the unique name check.
+        // For updates, fall back to the existing program's department_id.
+        $departmentId = $request->input('department_id');
+        if (!$departmentId && $id) {
+            $program = Program::find($id);
+            $departmentId = $program ? $program->department_id : null;
+        }
 
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'department_id' => ($id ? 'sometimes|' : '') . 'required|exists:departments,id',
-            'name' => ($id ? 'sometimes|' : '') . 'required|string|max:255|' . $uniqueName,
-            'code' => ($id ? 'sometimes|' : '') . 'required|string|max:20|' . $uniqueCode,
+            'name' => [
+                ($id ? 'sometimes|' : '') . 'required|string|max:255',
+                function ($attribute, $value, $fail) use ($id, $departmentId) {
+                    $query = Program::where('name', $value);
+                    if ($departmentId) {
+                        $query->where('department_id', $departmentId);
+                    }
+                    if ($id) {
+                        $query->where('id', '!=', $id);
+                    }
+                    if ($query->exists()) {
+                        $fail('The name has already been given.');
+                    }
+                },
+            ],
+            'code' => ($id ? 'sometimes|' : '') . 'required|string|max:20|unique:programs,code' . ($id ? ',' . $id : ''),
             'description' => 'nullable|string|max:1000',
-            'level' => 'sometimes|in:undergraduate,postgraduate,phd',
+            'level' => 'sometimes|in:undergraduate,postgraduate,graduate,diploma,certificate,phd',
+            'duration_years' => 'nullable|integer|min:1|max:10',
             'is_active' => 'sometimes|boolean',
         ]);
 

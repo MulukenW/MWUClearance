@@ -19,8 +19,9 @@ class CreateProgramsTable extends Migration
             $table->string('name');
             $table->string('code')->unique();
             $table->text('description')->nullable();
-            $table->enum('level', ['undergraduate', 'postgraduate', 'phd'])->default('undergraduate');
+            $table->enum('level', ['undergraduate', 'postgraduate', 'graduate', 'diploma', 'certificate', 'phd'])->default('undergraduate');
             $table->boolean('is_active')->default(true);
+            $table->integer('duration_years')->nullable();
             $table->timestamps();
             
             $table->index('department_id');
