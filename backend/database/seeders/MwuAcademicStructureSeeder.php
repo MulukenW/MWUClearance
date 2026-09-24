@@ -342,6 +342,7 @@ class MwuAcademicStructureSeeder extends Seeder
                             'code' => $collegeData['code'] . '-' . $this->abbr($prog['name']),
                             'description' => $prog['description'] ?? null,
                             'level' => $prog['level'],
+                            'duration_years' => $prog['duration_years'] ?? $this->defaultDuration($prog['level']),
                             'is_active' => $prog['is_active'] ?? true,
                         ]
                     );
@@ -363,6 +364,7 @@ class MwuAcademicStructureSeeder extends Seeder
                 [
                     'code' => $phd['code'] . '-' . $this->abbr($phd['name']),
                     'level' => 'phd',
+                    'duration_years' => $phd['duration_years'] ?? 3,
                     'is_active' => true,
                 ]
             );
@@ -385,5 +387,18 @@ class MwuAcademicStructureSeeder extends Seeder
             $parts[] = strtoupper(substr($word, 0, 3));
         }
         return $parts === [] ? 'XXX' : implode('-', $parts);
+    }
+
+    protected function defaultDuration($level)
+    {
+        $durations = [
+            'undergraduate' => 4,
+            'postgraduate' => 2,
+            'graduate' => 1,
+            'diploma' => 2,
+            'certificate' => 1,
+            'phd' => 3,
+        ];
+        return $durations[$level] ?? 4;
     }
 }
