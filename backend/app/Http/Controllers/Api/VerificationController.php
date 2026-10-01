@@ -60,7 +60,7 @@ class VerificationController extends Controller
                 'issued_by' => $certificate->issuedBy ? $certificate->issuedBy->name : 'System',
                 'status' => $isCompleted ? 'VERIFIED' : 'INVALID',
                 'student' => $student ? [
-                    'name' => $student->first_name . ' ' . $student->last_name,
+                    'name' => $student->full_name,
                     'student_id' => $student->student_id,
                     'department' => $student->department ? $student->department->name : 'N/A',
                     'college' => $student->department && $student->department->college ? $student->department->college->name : 'N/A',

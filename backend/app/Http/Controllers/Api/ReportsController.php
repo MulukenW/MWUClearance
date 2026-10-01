@@ -37,7 +37,7 @@ class ReportsController extends Controller
                 'student' => [
                     'id' => $student->id,
                     'student_id' => $student->student_id,
-                    'name' => $student->first_name . ' ' . $student->last_name,
+                    'name' => $student->full_name,
                     'department' => $student->department ? $student->department->name : 'N/A',
                     'college' => $student->department && $student->department->college ? $student->department->college->name : 'N/A',
                     'program' => $student->program ? $student->program->name : 'N/A',
@@ -151,7 +151,7 @@ class ReportsController extends Controller
                     'clearance_number' => $cr->clearance_number,
                     'student' => [
                         'student_id' => $student->student_id,
-                        'name' => $student->first_name . ' ' . $student->last_name,
+                        'name' => $student->full_name,
                         'department' => $student->department ? $student->department->name : 'N/A',
                         'student_type' => $student->studentType ? $student->studentType->name : 'N/A',
                     ],
@@ -308,7 +308,7 @@ class ReportsController extends Controller
                     'clearance_number' => $cr->clearance_number,
                     'student' => [
                         'student_id' => $student->student_id,
-                        'name' => $student->first_name . ' ' . $student->last_name,
+                        'name' => $student->full_name,
                         'department' => $student->department ? $student->department->name : 'N/A',
                         'student_type' => $student->studentType ? $student->studentType->name : 'N/A',
                     ],
@@ -361,7 +361,7 @@ class ReportsController extends Controller
                     'clearance_number' => $cr->clearance_number,
                     'student' => [
                         'student_id' => $student->student_id,
-                        'name' => $student->first_name . ' ' . $student->last_name,
+                        'name' => $student->full_name,
                         'department' => $student->department ? $student->department->name : 'N/A',
                     ],
                     'rejected_by' => $rejectedItems->map(function ($item) {

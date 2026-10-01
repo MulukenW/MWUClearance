@@ -119,7 +119,7 @@ class ChatController extends Controller
                     'item_status' => $item->status,
                     'clearance_request_id' => $item->clearance_request_id,
                     'clearance_number' => $item->clearanceRequest ? $item->clearanceRequest->clearance_number : null,
-                    'student_name' => $student ? trim($student->first_name . ' ' . $student->last_name) : null,
+                    'student_name' => $student ? $student->full_name : null,
                     'can_send' => $this->isChatOpen($item),
                 ],
             ], 200);
@@ -223,7 +223,7 @@ class ChatController extends Controller
                     'office' => $office ? ['id' => $office->id, 'name' => $office->name] : null,
                     'clearance_request_id' => $item->clearance_request_id,
                     'clearance_number' => $item->clearanceRequest ? $item->clearanceRequest->clearance_number : null,
-                    'student_name' => $student ? trim($student->first_name . ' ' . $student->last_name) : null,
+                    'student_name' => $student ? $student->full_name : null,
                     'student_id_no' => $student ? $student->student_id : null,
                     'unread_count' => $unread,
                     'last_message' => $last ? [

@@ -35,7 +35,7 @@ class CertificateResource extends JsonResource
                     'student' => $student ? [
                         'id' => $student->id,
                         'student_id' => $student->student_id,
-                        'full_name' => $student->first_name . ' ' . $student->last_name,
+                        'full_name' => $student->full_name,
                         'department' => $student->relationLoaded('department') && $student->department ? [
                             'id' => $student->department->id,
                             'name' => $student->department->name,

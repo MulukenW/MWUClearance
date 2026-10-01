@@ -95,9 +95,9 @@ class AdminController extends Controller
                 return [
                     'id' => $clearance->id,
                     'clearance_number' => $clearance->clearance_number,
-                    'student_name' => $clearance->student->first_name . ' ' . $clearance->student->last_name,
-                    'student_id' => $clearance->student->student_id,
-                    'department' => $clearance->student->department ? $clearance->student->department->name : 'N/A',
+                    'student_name' => $clearance->student ? $clearance->student->full_name : 'N/A',
+                    'student_id' => $clearance->student ? $clearance->student->student_id : 'N/A',
+                    'department' => $clearance->student && $clearance->student->department ? $clearance->student->department->name : 'N/A',
                     'status' => $clearance->status,
                     'submitted_at' => $clearance->submitted_at,
                 ];

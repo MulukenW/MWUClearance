@@ -264,7 +264,7 @@ class StudentController extends Controller
                 return [
                     'id' => $student->id,
                     'student_id' => $student->student_id,
-                    'name' => $student->first_name . ' ' . $student->last_name,
+                    'name' => $student->full_name,
                     'email' => $student->user ? $student->user->email : null,
                     'department' => $student->department ? $student->department->name : null,
                     'program' => $student->program ? $student->program->name : null,
