@@ -105,6 +105,7 @@ class AdminWorkflowController extends Controller
             'steps.*.clearance_office_id' => 'required|exists:clearance_offices,id',
             'steps.*.step_order' => 'required|integer|min:1',
             'steps.*.is_required' => 'required|boolean',
+            'steps.*.is_active' => 'sometimes|boolean',
         ]);
 
         if ($validator->fails()) {
@@ -120,10 +121,10 @@ class AdminWorkflowController extends Controller
 
         // Validate step_order values are sequential starting from 1
         for ($i = 0; $i < $steps->count(); $i++) {
-            if ($steps[$i]['step_order'] !== $i + 1) {
+            if ((int) $steps[$i]['step_order'] !== $i + 1) {
                 return response()->json([
                     'success' => false,
-                    'message' => "Step order values must be sequential starting from 1. Expected {$i} at position {$i}, got {$steps[$i]['step_order']}.",
+                    'message' => "Step order values must be sequential starting from 1. Expected " . ($i + 1) . " at position " . ($i + 1) . ", got {$steps[$i]['step_order']}.",
                 ], 422);
             }
         }
@@ -138,13 +139,16 @@ class AdminWorkflowController extends Controller
         }
 
         // Validate all clearance offices exist and are active
-        $validOfficeIds = ClearanceOffice::where('is_active', true)->pluck('id');
+        $validOfficeIds = ClearanceOffice::where('is_active', true)->pluck('id')->map(function ($id) {
+            return (int) $id;
+        });
         foreach ($officeIds as $officeId) {
-            if (!$validOfficeIds->contains($officeId)) {
+            if (!$validOfficeIds->contains((int) $officeId)) {
                 $office = ClearanceOffice::find($officeId);
+                $officeName = $office ? $office->name : "ID #{$officeId}";
                 return response()->json([
                     'success' => false,
-                    'message' => "Clearance office '{$office->name}' is not active or does not exist.",
+                    'message' => "Clearance office '{$officeName}' is not active or does not exist.",
                 ], 422);
             }
         }
@@ -159,9 +163,9 @@ class AdminWorkflowController extends Controller
                 ClearanceWorkflowStep::create([
                     'student_type_id' => $studentType->id,
                     'clearance_office_id' => $step['clearance_office_id'],
-                    'step_order' => $step['step_order'],
-                    'is_required' => $step['is_required'],
-                    'is_active' => true,
+                    'step_order' => (int) $step['step_order'],
+                    'is_required' => (bool) $step['is_required'],
+                    'is_active' => isset($step['is_active']) ? (bool) $step['is_active'] : true,
                 ]);
             }
 

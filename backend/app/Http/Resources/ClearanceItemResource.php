@@ -41,7 +41,7 @@ class ClearanceItemResource extends JsonResource
                         return [
                             'id' => $student->id,
                             'student_id' => $student->student_id,
-                            'name' => $student->first_name . ' ' . ($student->middle_name ?? '') . ' ' . $student->last_name,
+                            'name' => $student->full_name,
                             'department' => $student->relationLoaded('department') && $student->department ? [
                                 'id' => $student->department->id,
                                 'name' => $student->department->name,

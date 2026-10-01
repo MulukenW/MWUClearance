@@ -117,12 +117,16 @@ export default function StudentManagement() {
       const data = { ...form };
       
       // Transform data for backend API
-      const names = data.user.name.trim().split(' ');
+      const names = data.user.name.trim().split(/\s+/).filter(Boolean);
+      const firstName = names[0] || '';
+      const middleName = names.length > 2 ? names.slice(1, -1).join(' ') : '';
+      const lastName = names.length > 1 ? names[names.length - 1] : firstName;
+
       const payload = {
         student_id: data.student_id,
-        first_name: names[0] || '',
-        middle_name: names.length > 2 ? names.slice(1, -1).join(' ') : '',
-        last_name: names.length > 1 ? names[names.length - 1] : names[0],
+        first_name: firstName,
+        middle_name: middleName,
+        last_name: lastName,
         email: data.user.email,
         phone: data.phone || null,
         college_id: data.college_id,
@@ -307,11 +311,11 @@ export default function StudentManagement() {
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">
-                          {getInitials(s.user?.name || s.full_name)}
+                          {getInitials(s.full_name || s.user?.name)}
                         </div>
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-gray-800 truncate">
-                            {s.user?.name || s.full_name || "Unnamed student"}
+                            {s.full_name || s.user?.name || "Unnamed student"}
                           </p>
                           <p className="text-xs text-gray-400 truncate">
                             {s.user?.email}
@@ -449,10 +453,11 @@ export default function StudentManagement() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Full Name
+              Full Name <span className="text-xs font-normal text-gray-400">(First Name &nbsp; Middle Name &nbsp; Last Name)</span>
             </label>
             <input
               type="text"
+              placeholder="e.g. Abebe Kebede Tesfaye"
               value={form.user.name}
               onChange={(e) =>
                 setForm({

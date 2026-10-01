@@ -18,6 +18,7 @@ class StudentResource extends JsonResource
             'id' => $this->id,
             'student_id' => $this->student_id,
             'first_name' => $this->first_name,
+            'middle_name' => $this->middle_name,
             'last_name' => $this->last_name,
             'full_name' => trim(implode(' ', array_filter([
                 $this->first_name,
@@ -27,6 +28,7 @@ class StudentResource extends JsonResource
             'phone' => $this->phone,
             'address' => $this->address,
             'academic_year' => $this->academic_year,
+            'admission_year' => $this->admission_year,
             'status' => $this->status,
             
             // User relationship

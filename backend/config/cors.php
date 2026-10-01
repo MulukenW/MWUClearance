@@ -19,15 +19,17 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => array_values(array_unique([
-        env('FRONTEND_URL', 'http://localhost:5173'),
+    'allowed_origins' => array_values(array_filter(array_unique([
+        env('FRONTEND_URL'),
         'http://localhost:5173',
         'http://localhost:3000',
         'https://frontend-sand-five-88.vercel.app',
         'https://mwu-clearance.vercel.app',
-    ])),
+    ]))),
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        '#^https?:\/\/.*\.vercel\.app$#',
+    ],
 
     'allowed_headers' => ['*'],
 

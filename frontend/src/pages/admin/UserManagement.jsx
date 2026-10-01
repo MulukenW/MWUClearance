@@ -402,10 +402,11 @@ export default function UserManagement() {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Name
+              Full Name <span className="text-xs font-normal text-gray-400">(First Name &nbsp; Middle Name &nbsp; Last Name)</span>
             </label>
             <input
               type="text"
+              placeholder="e.g. Abebe Kebede Tesfaye"
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               className={inputClass}

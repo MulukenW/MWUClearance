@@ -19,29 +19,50 @@ export function getPageNumbers(current, last) {
 
 /**
  * Table footer with "Showing X of Y" and First/Prev/numbers/Next/Last pager.
- * Server-driven: pass the current page, last page and total from API meta.
+ * Server-driven or client-driven pagination.
  */
 export default function TablePagination({
   page,
   lastPage,
   total,
   showingCount,
+  from,
+  to,
+  pageSize,
+  onPageSizeChange,
   label = "items",
   onPageChange,
 }) {
+  const displayCount = from && to ? `${from}–${to}` : showingCount;
+
   return (
     <div className="px-5 py-3 bg-gray-50/50 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-      <p className="text-xs text-gray-500">
-        Showing{" "}
-        <span className="font-semibold text-gray-700">{showingCount}</span> of{" "}
-        <span className="font-semibold text-gray-700">{total}</span> {label}
-        {lastPage > 1 && (
-          <span className="text-gray-400">
-            {" "}
-            · Page {page} of {lastPage}
-          </span>
+      <div className="flex flex-wrap items-center gap-2.5">
+        <p className="text-xs text-gray-500">
+          Showing{" "}
+          <span className="font-semibold text-gray-700">{displayCount}</span> of{" "}
+          <span className="font-semibold text-gray-700">{total}</span> {label}
+          {lastPage > 1 && (
+            <span className="text-gray-400">
+              {" "}
+              · Page {page} of {lastPage}
+            </span>
+          )}
+        </p>
+        {onPageSizeChange && total > 10 && (
+          <select
+            value={pageSize}
+            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            className="text-xs border border-gray-200 rounded-lg px-2 py-1 bg-white text-gray-600 focus:outline-none focus:border-mwu-blue cursor-pointer"
+          >
+            <option value={10}>10 / page</option>
+            <option value={25}>25 / page</option>
+            <option value={50}>50 / page</option>
+            <option value={100}>100 / page</option>
+          </select>
         )}
-      </p>
+      </div>
+
       {lastPage > 1 && (
         <div className="flex items-center gap-1">
           <button
@@ -70,7 +91,7 @@ export default function TablePagination({
                 className={`min-w-[28px] px-2 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                   p === page
                     ? "bg-mwu-blue text-white border-mwu-blue shadow-sm"
-                    : "bg-white border-gray-200 hover:bg-gray-50"
+                    : "bg-white border-gray-200 hover:bg-gray-50 text-gray-700"
                 }`}
               >
                 {p}

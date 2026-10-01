@@ -699,9 +699,15 @@ class AdminController extends Controller
             }
             $passwordToUse = $generatedPassword ?? $request->password;
 
-            // Create user account
+            // Create user account with 3-part full name: [First Name] [Middle Name] [Last Name]
+            $fullName = trim(implode(' ', array_filter([
+                $request->first_name,
+                $request->middle_name,
+                $request->last_name,
+            ])));
+
             $user = User::create([
-                'name' => $request->first_name . ' ' . $request->last_name,
+                'name' => $fullName,
                 'email' => $request->email,
                 'password' => Hash::make($passwordToUse),
                 'role_id' => $studentRole->id,
@@ -1138,6 +1144,8 @@ class AdminController extends Controller
                 $errors[] = "A student with ID '$studentId' already exists";
             }
 
+            $rowFullName = trim(implode(' ', array_filter([$firstName, $middleName, $lastName])));
+
             if (!empty($errors)) {
                 $failed++;
                 $results[] = [
@@ -1145,7 +1153,7 @@ class AdminController extends Controller
                     'status' => 'failed',
                     'student_id' => $studentId,
                     'email' => $email,
-                    'name' => trim($firstName . ' ' . $lastName),
+                    'name' => $rowFullName,
                     'errors' => $errors,
                 ];
                 $seenEmails[$email] = true;
@@ -1173,7 +1181,7 @@ class AdminController extends Controller
                 $generatedPassword = strtoupper(substr($firstName, 0, 1)) . $studentId . rand(100, 999);
 
                 $user = User::create([
-                    'name' => $firstName . ' ' . $lastName,
+                    'name' => $rowFullName,
                     'email' => $email,
                     'password' => Hash::make($generatedPassword),
                     'role_id' => $studentRole->id,
@@ -1201,7 +1209,7 @@ class AdminController extends Controller
 
                 AuditLogService::log(
                     'student_imported',
-                    "Student imported: {$student->student_id} ({$student->first_name} {$student->last_name})",
+                    "Student imported: {$student->student_id} ({$rowFullName})",
                     'App\\Models\\Student',
                     $student->id,
                     ['student_id' => $student->student_id, 'department_id' => $student->department_id]
@@ -1214,7 +1222,7 @@ class AdminController extends Controller
                     'status' => 'imported',
                     'student_id' => $studentId,
                     'email' => $email,
-                    'name' => trim($firstName . ' ' . $lastName),
+                    'name' => $rowFullName,
                     'password' => $generatedPassword,
                     'email_generated' => $emailWasEmpty,
                 ];
@@ -1226,7 +1234,7 @@ class AdminController extends Controller
                     'status' => 'failed',
                     'student_id' => $studentId,
                     'email' => $email,
-                    'name' => trim($firstName . ' ' . $lastName),
+                    'name' => $rowFullName,
                     'errors' => ['Database error: ' . $e->getMessage()],
                 ];
             }
@@ -1335,8 +1343,8 @@ class AdminController extends Controller
 
             // Sync the linked user account (name, email, department, password)
             $userSync = [];
-            if ($request->filled('first_name') || $request->filled('last_name')) {
-                $userSync['name'] = trim($student->first_name . ' ' . ($student->middle_name ? $student->middle_name . ' ' : '') . $student->last_name);
+            if ($request->has('first_name') || $request->has('middle_name') || $request->has('last_name')) {
+                $userSync['name'] = $student->full_name;
             }
             if ($request->filled('email')) {
                 $userSync['email'] = $request->input('email');

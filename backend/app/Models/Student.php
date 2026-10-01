@@ -67,9 +67,13 @@ class Student extends Model
         return $this->hasMany(ClearanceRequest::class);
     }
 
-    // Accessor for full name
+    // Accessor for full name: [First Name] [Middle Name] [Last Name]
     public function getFullNameAttribute()
     {
-        return trim("{$this->first_name} {$this->middle_name} {$this->last_name}");
+        return trim(implode(' ', array_filter([
+            $this->first_name,
+            $this->middle_name,
+            $this->last_name,
+        ])));
     }
 }

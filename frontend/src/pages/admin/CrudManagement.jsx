@@ -4,6 +4,7 @@ import SearchBar from "../../components/SearchBar";
 import LoadingSpinner from "../../components/LoadingSpinner";
 import EmptyState from "../../components/EmptyState";
 import ConfirmDialog from "../../components/ConfirmDialog";
+import TablePagination from "../../components/TablePagination";
 import { formatDate } from "../../utils/helpers";
 
 /**
@@ -20,6 +21,7 @@ import { formatDate } from "../../utils/helpers";
  *  - columns: [{ key, label, render? }]
  *  - formFields: [{ name, label, type, options? }]
  *  - emptyForm: { field: defaultValue }
+ *  - defaultPageSize: number (default 10)
  */
 export default function CrudManagement({
   title,
@@ -33,10 +35,13 @@ export default function CrudManagement({
   columns,
   formFields,
   emptyForm,
+  defaultPageSize = 10,
 }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(defaultPageSize);
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -60,7 +65,13 @@ export default function CrudManagement({
 
   const handleSearch = (v) => {
     setSearch(v);
+    setPage(1);
     if (v === "") fetchData();
+  };
+
+  const handlePageSizeChange = (newSize) => {
+    setPageSize(newSize);
+    setPage(1);
   };
 
   const openCreate = () => {
@@ -90,8 +101,8 @@ export default function CrudManagement({
       Object.entries(form).forEach(([key, value]) => {
         if (value === "") {
           // Skip empty strings for required fields, or set to null for optional
-          const field = formFields.find(f => f.name === key);
-          if (field && field.type === 'select') {
+          const field = formFields.find((f) => f.name === key);
+          if (field && field.type === "select") {
             // Don't include empty select values
             return;
           }
@@ -100,11 +111,12 @@ export default function CrudManagement({
           cleanedForm[key] = value;
         }
       });
-      
+
       if (editItem) {
         await updateFn(editItem.id, cleanedForm);
       } else {
         await createFn(cleanedForm);
+        setPage(1);
       }
       setShowModal(false);
       fetchData();
@@ -113,8 +125,8 @@ export default function CrudManagement({
       const errors = err.response?.data?.errors;
       if (errors) {
         const errorList = Object.entries(errors)
-          .map(([field, msgs]) => `${field}: ${msgs.join(', ')}`)
-          .join('; ');
+          .map(([field, msgs]) => `${field}: ${msgs.join(", ")}`)
+          .join("; ");
         setError(`${errorMsg} - ${errorList}`);
       } else {
         setError(errorMsg);
@@ -210,6 +222,17 @@ export default function CrudManagement({
 
   if (loading && items.length === 0) return <LoadingSpinner />;
 
+  // Pagination calculation
+  const total = items.length;
+  const lastPage = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(page, lastPage);
+  const from = total > 0 ? (currentPage - 1) * pageSize + 1 : 0;
+  const to = Math.min(currentPage * pageSize, total);
+  const paginatedItems = items.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
+
   return (
     <div>
       {/* Page Header */}
@@ -285,7 +308,7 @@ export default function CrudManagement({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {items.map((item, idx) => (
+                {paginatedItems.map((item) => (
                   <tr
                     key={item.id}
                     className="hover:bg-gray-50/50 transition-colors group"
@@ -365,12 +388,20 @@ export default function CrudManagement({
               </tbody>
             </table>
           </div>
-          {/* Footer */}
-          <div className="px-5 py-3 bg-gray-50/50 border-t border-gray-100 text-xs text-gray-500">
-            Showing{" "}
-            <span className="font-semibold text-gray-700">{items.length}</span>{" "}
-            {title.toLowerCase()}
-          </div>
+
+          {/* Footer with page navigation and page size selector */}
+          <TablePagination
+            page={currentPage}
+            lastPage={lastPage}
+            total={total}
+            showingCount={paginatedItems.length}
+            from={from}
+            to={to}
+            pageSize={pageSize}
+            onPageSizeChange={handlePageSizeChange}
+            label={title.toLowerCase()}
+            onPageChange={setPage}
+          />
         </div>
       )}
 

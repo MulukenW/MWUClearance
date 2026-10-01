@@ -723,10 +723,12 @@ class AdminManagementController extends Controller
             $departmentId = $program ? $program->department_id : null;
         }
 
-        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
-            'department_id' => ($id ? 'sometimes|' : '') . 'required|exists:departments,id',
-            'name' => [
-                ($id ? 'sometimes|' : '') . 'required|string|max:255',
+        $nameRules = array_merge(
+            $id ? ['sometimes'] : [],
+            [
+                'required',
+                'string',
+                'max:255',
                 function ($attribute, $value, $fail) use ($id, $departmentId) {
                     $query = Program::where('name', $value);
                     if ($departmentId) {
@@ -739,7 +741,12 @@ class AdminManagementController extends Controller
                         $fail('The name has already been given.');
                     }
                 },
-            ],
+            ]
+        );
+
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+            'department_id' => ($id ? 'sometimes|' : '') . 'required|exists:departments,id',
+            'name' => $nameRules,
             'code' => ($id ? 'sometimes|' : '') . 'required|string|max:20|unique:programs,code' . ($id ? ',' . $id : ''),
             'description' => 'nullable|string|max:1000',
             'level' => 'sometimes|in:undergraduate,postgraduate,graduate,diploma,certificate,phd',
