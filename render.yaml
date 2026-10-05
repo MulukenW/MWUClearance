@@ -1,0 +1,58 @@
+services:
+  # ─── Laravel API Web Service ─────────────────────────────────────────────
+  - type: web
+    name: mwu-clearance-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    region: oregon
+    envVars:
+      - key: APP_NAME
+        value: "MWU Clearance System"
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        generateValue: true
+      - key: APP_URL
+        fromService:
+          type: web
+          name: mwu-clearance-api
+          property: host
+      - key: FRONTEND_URL
+        value: "https://frontend-sand-five-88.vercel.app"
+      - key: DB_CONNECTION
+        value: mysql
+      - key: DB_HOST
+        fromDatabase:
+          name: mwu-clearance-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: mwu-clearance-db
+          property: port
+      - key: DB_DATABASE
+        fromDatabase:
+          name: mwu-clearance-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: mwu-clearance-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: mwu-clearance-db
+          property: password
+
+databases:
+  # ─── Render MySQL (or PostgreSQL) Database ────────────────────────────────
+  # Note: Render offers native PostgreSQL on the free tier.
+  # For MySQL, you can connect an external free MySQL instance (e.g. Aiven, Clever Cloud)
+  # or provision a Render database.
+  - name: mwu-clearance-db
+    plan: free
+    region: oregon
+    databaseName: mwu_clearance
+    user: clearance_user
