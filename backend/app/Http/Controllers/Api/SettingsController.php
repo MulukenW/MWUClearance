@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Exception;
 
 class SettingsController extends Controller
@@ -50,6 +52,22 @@ class SettingsController extends Controller
     public function update(Request $request)
     {
         try {
+            // Auto-format primary_color if supplied without leading '#' or with surrounding whitespace
+            if ($request->has('primary_color')) {
+                $rawColor = $request->input('primary_color');
+                if (is_string($rawColor)) {
+                    $trimmed = trim($rawColor);
+                    if ($trimmed === '') {
+                        $request->merge(['primary_color' => null]);
+                    } else {
+                        if ($trimmed[0] !== '#' && preg_match('/^[0-9a-fA-F]{3,6}$/', $trimmed)) {
+                            $trimmed = '#' . $trimmed;
+                        }
+                        $request->merge(['primary_color' => $trimmed]);
+                    }
+                }
+            }
+
             $request->validate([
                 'university_name' => 'nullable|string|max:255',
                 'system_name' => 'nullable|string|max:255',
@@ -57,31 +75,52 @@ class SettingsController extends Controller
                 'phone' => 'nullable|string|max:50',
                 'email' => 'nullable|email|max:255',
                 'website' => 'nullable|string|max:255',
-                // Hex color for the app-wide brand (e.g. #042791); empty resets to default
-                'primary_color' => ['nullable', 'regex:/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/'],
+                // Hex color for the app-wide brand (e.g. #042791); empty/null resets to default
+                'primary_color' => ['nullable', 'string', 'regex:/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/i'],
             ]);
 
             $fields = ['university_name', 'system_name', 'address', 'phone', 'email', 'website'];
             foreach ($fields as $field) {
-                if ($request->has($field)) {
-                    Setting::set($field, $request->$field, 'text', ucfirst(str_replace('_', ' ', $field)), 'general');
+                if ($request->has($field) || $request->exists($field)) {
+                    $val = $request->input($field);
+                    Setting::set(
+                        $field,
+                        ($val !== '' && $val !== null) ? trim((string) $val) : null,
+                        'text',
+                        ucfirst(str_replace('_', ' ', $field)),
+                        'general'
+                    );
                 }
             }
 
             if ($request->has('primary_color')) {
-                $color = strtolower(trim((string) $request->primary_color));
-                // Expand shorthand #abc -> #aabbcc so consumers always get 6 digits
-                if (preg_match('/^#([0-9a-f])\1([0-9a-f])\2([0-9a-f])\3$/', $color, $m)) {
-                    $color = '#' . $m[1] . $m[1] . $m[2] . $m[2] . $m[3] . $m[3];
+                $color = $request->input('primary_color');
+                if ($color) {
+                    $color = strtolower(trim((string) $color));
+                    // Expand 3-digit shorthand #abc -> #aabbcc so consumers always get 6 digits
+                    if (preg_match('/^#([0-9a-f])([0-9a-f])([0-9a-f])$/i', $color, $m)) {
+                        $color = '#' . $m[1] . $m[1] . $m[2] . $m[2] . $m[3] . $m[3];
+                    }
+                    Setting::set('primary_color', $color, 'color', 'Primary Brand Color', 'branding');
+                } else {
+                    Setting::set('primary_color', null, 'color', 'Primary Brand Color', 'branding');
                 }
-                Setting::set('primary_color', $color !== '' ? $color : null, 'color', 'Primary Brand Color', 'branding');
             }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Settings updated successfully',
             ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->validator->errors()->first() ?: 'The given data was invalid.',
+                'errors' => $e->validator->errors(),
+            ], 422);
         } catch (Exception $e) {
+            Log::error('Settings update error: ' . $e->getMessage(), [
+                'exception' => $e,
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update settings',
@@ -91,20 +130,43 @@ class SettingsController extends Controller
     }
 
     /**
-     * Public: the app-wide primary color (hex) for theme theming.
-     * Returns the default when unset so callers never need special-casing.
+     * Public institution settings and branding for login and public pages.
      */
-    public function primaryColor()
+    public function publicSettings()
     {
+        $universityName = Setting::get('university_name') ?: 'Madda Walabu University';
+        $systemName = Setting::get('system_name');
+
+        if (!$systemName) {
+            $systemName = ($universityName !== 'Madda Walabu University')
+                ? "{$universityName} Student Clearance System"
+                : 'MWU Student Clearance System';
+        }
+
         return response()
             ->json([
                 'success' => true,
                 'data' => [
+                    'university_name' => $universityName,
+                    'system_name' => $systemName,
+                    'address' => Setting::get('address') ?: '',
+                    'phone' => Setting::get('phone') ?: '',
+                    'email' => Setting::get('email') ?: '',
+                    'website' => Setting::get('website') ?: '',
                     'primary_color' => Setting::get('primary_color') ?: '#042791',
                     'default_color' => '#042791',
                 ],
             ])
             ->header('Cache-Control', 'no-store');
+    }
+
+    /**
+     * Public: the app-wide primary color (hex) for theme theming.
+     * Alias for publicSettings.
+     */
+    public function primaryColor()
+    {
+        return $this->publicSettings();
     }
 
     /**
@@ -137,7 +199,14 @@ class SettingsController extends Controller
                     'path' => $path,
                 ],
             ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->validator->errors()->first() ?: 'The uploaded logo is invalid.',
+                'errors' => $e->validator->errors(),
+            ], 422);
         } catch (Exception $e) {
+            Log::error('Logo upload error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload logo',
@@ -164,6 +233,7 @@ class SettingsController extends Controller
                 'message' => 'Logo removed, using default',
             ]);
         } catch (Exception $e) {
+            Log::error('Logo delete error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete logo',
@@ -191,7 +261,14 @@ class SettingsController extends Controller
                 'message' => 'Stamp uploaded successfully',
                 'data' => ['url' => Storage::url($path), 'path' => $path],
             ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->validator->errors()->first() ?: 'The uploaded stamp is invalid.',
+                'errors' => $e->validator->errors(),
+            ], 422);
         } catch (Exception $e) {
+            Log::error('Stamp upload error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload stamp',

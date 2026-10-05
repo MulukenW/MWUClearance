@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { API_BASE_URL, verificationApi } from "../services/api";
 import LoadingSpinner from "../components/LoadingSpinner";
+import { useBrandInfo } from "../utils/branding";
 
 export default function VerifyCertificate() {
   const { code } = useParams();
+  const { university_name, system_name } = useBrandInfo();
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -41,10 +43,10 @@ export default function VerifyCertificate() {
             className="w-16 h-16 mx-auto mb-3"
           />
           <h1 className="text-2xl font-bold text-blue-900">
-            Madda Walabu University
+            {university_name}
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Student Clearance Certificate Verification
+            {system_name} &mdash; Certificate Verification
           </p>
         </div>
 
@@ -240,7 +242,7 @@ export default function VerifyCertificate() {
         {/* Footer */}
         <div className="mt-8 pt-4 border-t text-center">
           <p className="text-xs text-gray-400">
-            Madda Walabu University &mdash; Student Clearance Management System
+            {university_name} &mdash; {system_name}
           </p>
           <p className="text-xs text-gray-400 mt-1">
             Verification Code:{" "}

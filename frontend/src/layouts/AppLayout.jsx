@@ -7,6 +7,7 @@ import { OFFICER_ROLES } from "../constants";
 import useSingleTabSession from "../hooks/useSingleTabSession";
 import useSessionTimer from "../hooks/useSessionTimer";
 import SessionModals from "../components/SessionModals";
+import { useBrandInfo } from "../utils/branding";
 
 /* ─── SVG Icon Components ─────────────────────────────────────────────── */
 const Icon = ({ d, className = "w-5 h-5" }) => (
@@ -56,6 +57,8 @@ const icons = {
     "M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z",
   chat:
     "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z",
+  code:
+    "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4",
 };
 
 /* ─── Sidebar Link ──────────────────────────────────────────────────── */
@@ -107,6 +110,7 @@ function SectionLabel({ children, collapsed }) {
 /* ─── Sidebar ───────────────────────────────────────────────────────── */
 function Sidebar({ mobileOpen, onClose }) {
   const { user, roleCode } = useAuth();
+  const { system_name, university_name } = useBrandInfo();
   const [chatUnread, setChatUnread] = useState(0);
 
   // Poll unread chat badge (admins have no chat inbox)
@@ -144,6 +148,11 @@ function Sidebar({ mobileOpen, onClose }) {
       label: "Chats",
       icon: <Icon d={icons.chat} />,
     },
+    {
+      to: "/about-developer",
+      label: "About System",
+      icon: <Icon d={icons.code} />,
+    },
   ];
 
   const officerLinks = [
@@ -166,6 +175,11 @@ function Sidebar({ mobileOpen, onClose }) {
       to: "/officer/chats",
       label: "Chats",
       icon: <Icon d={icons.chat} />,
+    },
+    {
+      to: "/about-developer",
+      label: "About System",
+      icon: <Icon d={icons.code} />,
     },
   ];
 
@@ -234,6 +248,11 @@ function Sidebar({ mobileOpen, onClose }) {
         to: "/admin/settings",
         label: "Settings",
         icon: <Icon d={icons.settings} />,
+      },
+      {
+        to: "/about-developer",
+        label: "Developer",
+        icon: <Icon d={icons.code} />,
       },
     ],
   };
@@ -313,12 +332,12 @@ function Sidebar({ mobileOpen, onClose }) {
                 }}
               />
             </div>
-            <div>
-              <h1 className="text-white text-sm font-bold leading-tight">
-                MWU Clearance
+            <div className="min-w-0 flex-1">
+              <h1 className="text-white text-sm font-bold leading-tight truncate">
+                {system_name || "MWU Clearance"}
               </h1>
-              <p className="text-white/40 text-[10px] mt-0.5">
-                Madda Walabu University
+              <p className="text-white/40 text-[10px] mt-0.5 truncate">
+                {university_name || "Madda Walabu University"}
               </p>
             </div>
           </div>

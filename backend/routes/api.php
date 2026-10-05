@@ -51,6 +51,7 @@ Route::get('/certificate/{id}/view', [CertificateController::class, 'publicView'
 Route::get('/logo', [SettingsController::class, 'logo']);
 Route::get('/stamp', [SettingsController::class, 'stamp']);
 Route::get('/branding/color', [SettingsController::class, 'primaryColor']);
+Route::get('/settings/public', [SettingsController::class, 'publicSettings']);
 
 // WebAuthn public login routes
 Route::prefix('webauthn')->group(function () {

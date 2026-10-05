@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Link } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./routes/ProtectedRoute";
 import AppLayout from "./layouts/AppLayout";
@@ -42,6 +42,7 @@ import Settings from "./pages/admin/Settings";
 // Public pages
 import CertificateView from "./pages/CertificateView";
 import VerifyCertificate from "./pages/VerifyCertificate";
+import Developer from "./pages/Developer";
 
 export default function App() {
   return (
@@ -69,6 +70,27 @@ export default function App() {
           {/* Public: Certificate verification (no auth layout) */}
           <Route path="/verify/:code" element={<VerifyCertificate />} />
 
+          {/* Public: Developer and About page */}
+          <Route
+            path="/developer"
+            element={
+              <div className="min-h-screen bg-gray-50 p-4 sm:p-8">
+                <div className="max-w-6xl mx-auto mb-6 flex items-center justify-between">
+                  <Link
+                    to="/login"
+                    className="inline-flex items-center gap-2 text-xs font-semibold text-gray-500 hover:text-gray-800 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Sign In
+                  </Link>
+                </div>
+                <Developer />
+              </div>
+            }
+          />
+
           {/* Authenticated routes */}
           <Route
             element={
@@ -79,6 +101,7 @@ export default function App() {
           >
             {/* Shared */}
             <Route path="/change-password" element={<ChangePassword />} />
+            <Route path="/about-developer" element={<Developer />} />
 
             {/* Student routes */}
             <Route

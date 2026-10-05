@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { settingsApi } from "../../services/api";
-import { applyBrandColor } from "../../utils/branding";
+import { settingsApi, API_BASE_URL } from "../../services/api";
+import { applyBrandColor, applyBrandSettings } from "../../utils/branding";
 import LoadingSpinner from "../../components/LoadingSpinner";
 
 export default function Settings() {
@@ -36,8 +36,12 @@ export default function Settings() {
         const map = {};
         data.forEach((s) => {
           map[s.key] = s.value || "";
-          if (s.key === "logo_path" && s.url) setLogoUrl(s.url);
-          if (s.key === "stamp_path" && s.url) setStampUrl(s.url);
+          if (s.key === "logo_path" && s.value) {
+            setLogoUrl(`${API_BASE_URL}/logo?t=${Date.now()}`);
+          }
+          if (s.key === "stamp_path" && s.value) {
+            setStampUrl(`${API_BASE_URL}/stamp?t=${Date.now()}`);
+          }
           if (s.key === "primary_color") {
             const color = s.value || "#042791";
             setSavedColor(color);
@@ -52,6 +56,7 @@ export default function Settings() {
           email: map.email || "",
           website: map.website || "",
         });
+        applyBrandSettings(map);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -67,9 +72,12 @@ export default function Settings() {
     setError("");
     try {
       await settingsApi.update(form);
+      applyBrandSettings(form);
       setMessage("Settings saved successfully.");
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to save settings.");
+      const errDetails = err.response?.data?.errors;
+      const firstErr = errDetails ? Object.values(errDetails)[0]?.[0] : null;
+      setError(firstErr || err.response?.data?.message || "Failed to save settings.");
     }
     setSaving(false);
   };
@@ -85,9 +93,11 @@ export default function Settings() {
 
   const handleColorChange = (value) => {
     setColorDraft(value);
+    const trimmed = value.trim();
+    const candidate = trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
     // Live preview — restyle the whole app immediately
-    if (/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(value)) {
-      applyBrandColor(value);
+    if (/^#([0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/.test(candidate)) {
+      applyBrandColor(candidate);
     }
   };
 
@@ -95,13 +105,24 @@ export default function Settings() {
     setSaving(true);
     setMessage("");
     setError("");
+    let color = colorDraft.trim();
+    if (color && !color.startsWith("#") && /^[0-9a-fA-F]{3,6}$/.test(color)) {
+      color = `#${color}`;
+    }
+    if (color && !/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/i.test(color)) {
+      setError("Please enter a valid hex color code (e.g. #042791).");
+      setSaving(false);
+      return;
+    }
     try {
-      await settingsApi.update({ primary_color: colorDraft.trim() });
-      setSavedColor(colorDraft.trim().toLowerCase());
-      applyBrandColor(colorDraft.trim());
+      await settingsApi.update({ primary_color: color });
+      setSavedColor(color.toLowerCase());
+      setColorDraft(color);
+      applyBrandSettings({ primary_color: color });
       setMessage("Brand color saved. It now applies to everyone.");
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to save brand color.");
+      const fieldError = err.response?.data?.errors?.primary_color?.[0];
+      setError(fieldError || err.response?.data?.message || "Failed to save brand color.");
     }
     setSaving(false);
   };
@@ -114,7 +135,7 @@ export default function Settings() {
       await settingsApi.update({ primary_color: "" });
       setSavedColor("");
       setColorDraft("#042791");
-      applyBrandColor("#042791");
+      applyBrandSettings({ primary_color: "#042791" });
       setMessage("Brand color reset to the MWU blue default.");
     } catch (err) {
       setError(err.response?.data?.message || "Failed to reset brand color.");
@@ -125,6 +146,12 @@ export default function Settings() {
   const handleLogoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Instant local preview
+    const objectUrl = URL.createObjectURL(file);
+    const prevLogo = logoUrl;
+    setLogoUrl(objectUrl);
+
     setUploading(true);
     setMessage("");
     setError("");
@@ -132,13 +159,19 @@ export default function Settings() {
       const formData = new FormData();
       formData.append("logo", file);
       const res = await settingsApi.uploadLogo(formData);
-      setLogoUrl(res.data.data?.url || null);
+      const newUrl = res.data.data?.url
+        ? `${res.data.data.url}?t=${Date.now()}`
+        : `${API_BASE_URL}/logo?t=${Date.now()}`;
+      setLogoUrl(newUrl);
       setMessage("Logo uploaded successfully.");
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to upload logo.");
+      setLogoUrl(prevLogo);
+      const fieldError = err.response?.data?.errors?.logo?.[0];
+      setError(fieldError || err.response?.data?.message || "Failed to upload logo.");
+    } finally {
+      setUploading(false);
+      if (fileInput.current) fileInput.current.value = "";
     }
-    setUploading(false);
-    if (fileInput.current) fileInput.current.value = "";
   };
 
   const handleDeleteLogo = async () => {
@@ -156,6 +189,12 @@ export default function Settings() {
   const handleStampUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Instant local preview
+    const objectUrl = URL.createObjectURL(file);
+    const prevStamp = stampUrl;
+    setStampUrl(objectUrl);
+
     setUploading(true);
     setMessage("");
     setError("");
@@ -163,13 +202,19 @@ export default function Settings() {
       const formData = new FormData();
       formData.append("stamp", file);
       const res = await settingsApi.uploadStamp(formData);
-      setStampUrl(res.data.data?.url || null);
+      const newUrl = res.data.data?.url
+        ? `${res.data.data.url}?t=${Date.now()}`
+        : `${API_BASE_URL}/stamp?t=${Date.now()}`;
+      setStampUrl(newUrl);
       setMessage("Stamp uploaded successfully.");
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to upload stamp.");
+      setStampUrl(prevStamp);
+      const fieldError = err.response?.data?.errors?.stamp?.[0];
+      setError(fieldError || err.response?.data?.message || "Failed to upload stamp.");
+    } finally {
+      setUploading(false);
+      if (stampInput.current) stampInput.current.value = "";
     }
-    setUploading(false);
-    if (stampInput.current) stampInput.current.value = "";
   };
 
   const handleDeleteStamp = async () => {
@@ -186,7 +231,7 @@ export default function Settings() {
 
   if (loading) return <LoadingSpinner />;
 
-  const logoPreview = logoUrl || "/mwu-logo.png";
+  const logoPreview = logoUrl || `${API_BASE_URL}/logo`;
   const inputClass =
     "w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-mwu-blue/20 focus:border-mwu-blue outline-none transition-all bg-gray-50 focus:bg-white";
 
@@ -309,7 +354,9 @@ export default function Settings() {
                 value={
                   /^#([0-9a-fA-F]{6})$/.test(colorDraft)
                     ? colorDraft
-                    : "#042791"
+                    : (/^#([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])$/.test(colorDraft)
+                        ? `#${colorDraft[1]}${colorDraft[1]}${colorDraft[2]}${colorDraft[2]}${colorDraft[3]}${colorDraft[3]}`
+                        : "#042791")
                 }
                 onChange={(e) => handleColorChange(e.target.value)}
                 className="w-12 h-11 rounded-xl border border-gray-200 cursor-pointer bg-white p-1"
@@ -380,11 +427,16 @@ export default function Settings() {
           </div>
           <div className="p-6">
             {/* Preview */}
-            <div className="flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-2xl border border-gray-200 p-8 mb-5">
+            <div className="flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-2xl border border-gray-200 p-8 mb-5 min-h-[160px]">
               <img
                 src={logoPreview}
                 alt="University Logo"
                 className="w-32 h-32 object-contain"
+                onError={(e) => {
+                  if (!e.target.src.endsWith("/mwu-logo.png")) {
+                    e.target.src = "/mwu-logo.png";
+                  }
+                }}
               />
             </div>
 
@@ -456,7 +508,14 @@ export default function Settings() {
           <div className="p-6">
             <div className="flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-2xl border border-gray-200 p-8 mb-5 min-h-[208px]">
               {stampUrl ? (
-                <img src={stampUrl} alt="Certificate stamp" className="w-36 h-36 object-contain" />
+                <img
+                  src={stampUrl}
+                  alt="Certificate stamp"
+                  className="w-36 h-36 object-contain"
+                  onError={() => {
+                    setStampUrl(null);
+                  }}
+                />
               ) : (
                 <div className="w-32 h-32 rounded-full border-2 border-dashed border-mwu-blue/40 flex items-center justify-center text-center text-xs font-semibold text-mwu-blue px-6">
                   No stamp uploaded

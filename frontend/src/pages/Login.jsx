@@ -184,12 +184,21 @@ export default function Login() {
         </button>
       </form>
 
-      <div className="mt-4 text-center">
+      <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
         <Link
           to="/forgot-password"
-          className="text-sm text-mwu-blue hover:underline"
+          className="text-mwu-blue hover:underline font-medium"
         >
           Forgot password?
+        </Link>
+        <Link
+          to="/developer"
+          className="text-gray-400 hover:text-mwu-blue transition-colors flex items-center gap-1 font-medium"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+          </svg>
+          Developer
         </Link>
       </div>
     </div>
