@@ -4,9 +4,13 @@ const isLocalFrontend =
   window.location.hostname === "localhost" ||
   window.location.hostname === "127.0.0.1";
 
+const rawApiUrl = import.meta.env.VITE_API_URL;
 export const API_BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  (isLocalFrontend ? "http://localhost:8000/api" : "/api");
+  rawApiUrl && !rawApiUrl.includes("railway.app")
+    ? rawApiUrl
+    : isLocalFrontend
+    ? "http://localhost:8000/api"
+    : "https://mwu-clearance-api.onrender.com/api";
 
 const api = axios.create({
   baseURL: API_BASE_URL,
