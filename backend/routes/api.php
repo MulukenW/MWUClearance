@@ -32,6 +32,24 @@ use App\Http\Controllers\Api\ChatController;
 // Public routes (no authentication required)
 // ========================================================================
 
+Route::get('/health', function () {
+    try {
+        DB::connection()->getPdo();
+        $userCount = \App\Models\User::count();
+        return response()->json([
+            'status' => 'ok',
+            'database' => 'connected',
+            'users_count' => $userCount,
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => 'error',
+            'database' => 'failed',
+            'message' => $e->getMessage(),
+        ], 500);
+    }
+});
+
 Route::prefix('auth')->group(function () {
     // Login with rate limiting (20 attempts per minute for development)
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:20,1');

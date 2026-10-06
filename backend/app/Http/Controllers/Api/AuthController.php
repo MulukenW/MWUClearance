@@ -83,10 +83,11 @@ class AuthController extends Controller
             ], 200);
 
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Login error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred during login',
-                'error' => config('app.debug') ? $e->getMessage() : null,
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
