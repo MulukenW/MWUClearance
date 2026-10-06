@@ -13,7 +13,9 @@ class UpdateProgramsTableForExtendedLevels extends Migration
             $table->integer('duration_years')->nullable()->after('is_active');
         });
 
-        DB::statement("ALTER TABLE programs MODIFY COLUMN level ENUM('undergraduate','postgraduate','graduate','diploma','certificate','phd') DEFAULT 'undergraduate'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE programs MODIFY COLUMN level ENUM('undergraduate','postgraduate','graduate','diploma','certificate','phd') DEFAULT 'undergraduate'");
+        }
     }
 
     public function down()
@@ -22,6 +24,8 @@ class UpdateProgramsTableForExtendedLevels extends Migration
             $table->dropColumn('duration_years');
         });
 
-        DB::statement("ALTER TABLE programs MODIFY COLUMN level ENUM('undergraduate','postgraduate','phd') DEFAULT 'undergraduate'");
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement("ALTER TABLE programs MODIFY COLUMN level ENUM('undergraduate','postgraduate','phd') DEFAULT 'undergraduate'");
+        }
     }
 };

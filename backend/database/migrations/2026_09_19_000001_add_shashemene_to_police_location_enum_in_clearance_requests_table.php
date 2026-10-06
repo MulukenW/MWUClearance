@@ -12,9 +12,11 @@ class AddShashemeneToPoliceLocationEnumInClearanceRequestsTable extends Migratio
      */
     public function up()
     {
-        DB::statement(
-            "ALTER TABLE clearance_requests MODIFY police_location ENUM('robe', 'goba', 'shashemene') NULL"
-        );
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement(
+                "ALTER TABLE clearance_requests MODIFY police_location ENUM('robe', 'goba', 'shashemene') NULL"
+            );
+        }
     }
 
     /**
@@ -29,8 +31,10 @@ class AddShashemeneToPoliceLocationEnumInClearanceRequestsTable extends Migratio
             ->where('police_location', 'shashemene')
             ->update(['police_location' => 'robe']);
 
-        DB::statement(
-            "ALTER TABLE clearance_requests MODIFY police_location ENUM('robe', 'goba') NULL"
-        );
+        if (DB::getDriverName() === 'mysql') {
+            DB::statement(
+                "ALTER TABLE clearance_requests MODIFY police_location ENUM('robe', 'goba') NULL"
+            );
+        }
     }
 }

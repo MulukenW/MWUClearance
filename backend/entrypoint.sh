@@ -6,6 +6,21 @@ if [ -z "$APP_KEY" ]; then
     php artisan key:generate --force || true
 fi
 
+# Database auto-configuration
+case "$DB_HOST" in
+  *.*)
+    echo "==> Using external database host: $DB_HOST"
+    ;;
+  *)
+    echo "==> DB_HOST ('$DB_HOST') is not a remote host. Using self-contained SQLite database on Render..."
+    export DB_CONNECTION=sqlite
+    export DB_DATABASE=/app/database/database.sqlite
+    mkdir -p /app/database
+    touch /app/database/database.sqlite
+    chmod 666 /app/database/database.sqlite
+    ;;
+esac
+
 echo "==> Caching configuration and routes..."
 php artisan config:clear || true
 php artisan route:clear || true
