@@ -84,7 +84,7 @@ class ClearanceOfficeSeeder extends Seeder
         ];
 
         foreach ($offices as $office) {
-            ClearanceOffice::create($office);
+            ClearanceOffice::firstOrCreate(['code' => $office['code']], $office);
         }
     }
 }

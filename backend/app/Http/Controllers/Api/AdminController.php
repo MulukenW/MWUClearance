@@ -104,9 +104,13 @@ class AdminController extends Controller
             });
 
         // Average completion time
+        $avgDiffSql = DB::getDriverName() === 'sqlite'
+            ? 'AVG((julianday(completed_at) - julianday(submitted_at)) * 24) as avg_hours'
+            : 'AVG(TIMESTAMPDIFF(HOUR, submitted_at, completed_at)) as avg_hours';
+
         $avgCompletionTime = ClearanceRequest::where('status', 'completed')
             ->whereNotNull('completed_at')
-            ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, submitted_at, completed_at)) as avg_hours')
+            ->selectRaw($avgDiffSql)
             ->first();
 
         // Users statistics (users have a single role via role_id FK)
@@ -126,9 +130,9 @@ class AdminController extends Controller
         // Clearance offices workload
         $officeWorkload = ClearanceItem::select('clearance_office_id')
             ->selectRaw('COUNT(*) as total')
-            ->selectRaw('SUM(CASE WHEN status = "pending" THEN 1 ELSE 0 END) as pending')
-            ->selectRaw('SUM(CASE WHEN status = "approved" THEN 1 ELSE 0 END) as approved')
-            ->selectRaw('SUM(CASE WHEN status = "rejected" THEN 1 ELSE 0 END) as rejected')
+            ->selectRaw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending")
+            ->selectRaw("SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved")
+            ->selectRaw("SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected")
             ->groupBy('clearance_office_id')
             ->with('clearanceOffice:id,name,code')
             ->get()
@@ -177,7 +181,7 @@ class AdminController extends Controller
                     'rejected' => $rejectedClearances,
                     'by_status' => $clearancesByStatus,
                     'recent' => $recentClearances,
-                    'average_completion_hours' => $avgCompletionTime ? round($avgCompletionTime->avg_hours, 2) : null,
+                    'average_completion_hours' => ($avgCompletionTime && $avgCompletionTime->avg_hours !== null) ? round((float) $avgCompletionTime->avg_hours, 2) : 0,
                     'pending_items' => $pendingItems,
                     'locked_items' => $lockedItems,
                 ],

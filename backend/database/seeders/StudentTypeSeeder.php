@@ -42,7 +42,7 @@ class StudentTypeSeeder extends Seeder
         ];
 
         foreach ($studentTypes as $type) {
-            StudentType::create($type);
+            StudentType::firstOrCreate(['code' => $type['code']], $type);
         }
     }
 }

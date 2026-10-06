@@ -42,7 +42,7 @@ class CollegeSeeder extends Seeder
         ];
 
         foreach ($colleges as $college) {
-            College::create($college);
+            College::firstOrCreate(['code' => $college['code']], $college);
         }
     }
 }

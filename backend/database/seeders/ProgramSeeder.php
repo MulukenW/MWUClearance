@@ -21,6 +21,10 @@ class ProgramSeeder extends Seeder
         $acfn = Department::where('code', 'ACFN')->first();
         $mgt = Department::where('code', 'MGT')->first();
 
+        if (!$cs || !$it || !$math || !$acfn || !$mgt) {
+            return;
+        }
+
         $programs = [
             // Computer Science
             [
@@ -78,7 +82,7 @@ class ProgramSeeder extends Seeder
         ];
 
         foreach ($programs as $program) {
-            Program::create($program);
+            Program::firstOrCreate(['code' => $program['code']], $program);
         }
     }
 }

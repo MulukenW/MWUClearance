@@ -248,7 +248,12 @@ class ReportsController extends Controller
                 DB::raw('SUM(CASE WHEN status = "rejected" THEN 1 ELSE 0 END) as rejected'),
                 DB::raw('SUM(CASE WHEN status = "pending" THEN 1 ELSE 0 END) as pending'),
                 DB::raw('SUM(CASE WHEN status = "locked" THEN 1 ELSE 0 END) as locked'),
-                DB::raw('AVG(CASE WHEN processed_at IS NOT NULL THEN TIMESTAMPDIFF(HOUR, clearance_items.created_at, processed_at) END) as avg_processing_hours')
+                DB::raw(
+                    (DB::getDriverName() === 'sqlite'
+                        ? 'AVG(CASE WHEN processed_at IS NOT NULL THEN (julianday(processed_at) - julianday(clearance_items.created_at)) * 24 END)'
+                        : 'AVG(CASE WHEN processed_at IS NOT NULL THEN TIMESTAMPDIFF(HOUR, clearance_items.created_at, processed_at) END)')
+                    . ' as avg_processing_hours'
+                )
             )
             ->groupBy('clearance_office_id')
             ->orderBy('clearance_office_id');
@@ -263,7 +268,7 @@ class ReportsController extends Controller
                 'rejected' => $item->rejected,
                 'pending' => $item->pending,
                 'locked' => $item->locked,
-                'avg_processing_hours' => $item->avg_processing_hours ? round($item->avg_processing_hours, 2) : null,
+                'avg_processing_hours' => $item->avg_processing_hours !== null ? round((float) $item->avg_processing_hours, 2) : 0,
                 'approval_rate' => $item->total > 0 ? round(($item->approved / $item->total) * 100, 2) : 0,
             ];
         });
@@ -411,10 +416,14 @@ class ReportsController extends Controller
         $submittedClearances = (clone $baseQuery)->where('status', 'submitted')->count();
 
         // Average processing time
+        $reportsDiffSql = DB::getDriverName() === 'sqlite'
+            ? 'AVG((julianday(completed_at) - julianday(submitted_at)) * 24) as avg_hours'
+            : 'AVG(TIMESTAMPDIFF(HOUR, submitted_at, completed_at)) as avg_hours';
+
         $avgTime = (clone $baseQuery)
             ->where('status', 'completed')
             ->whereNotNull('completed_at')
-            ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, submitted_at, completed_at)) as avg_hours')
+            ->selectRaw($reportsDiffSql)
             ->value('avg_hours');
 
         // By student type
@@ -455,7 +464,7 @@ class ReportsController extends Controller
                     'rejected' => $rejectedClearances,
                     'completion_rate' => $totalClearances > 0 ? round(($completedClearances / $totalClearances) * 100, 2) : 0,
                     'rejection_rate' => $totalClearances > 0 ? round(($rejectedClearances / $totalClearances) * 100, 2) : 0,
-                    'avg_processing_hours' => $avgTime ? round($avgTime, 2) : null,
+                    'avg_processing_hours' => $avgTime !== null ? round((float) $avgTime, 2) : 0,
                 ],
                 'by_student_type' => $byStudentType,
                 'by_department' => $byDepartment,

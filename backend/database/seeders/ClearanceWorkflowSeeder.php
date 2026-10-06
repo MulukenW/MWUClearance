@@ -63,10 +63,16 @@ class ClearanceWorkflowSeeder extends Seeder
             ['office' => $registrar, 'order' => 11, 'required' => true],
         ];
 
+        if (!$regular || !$extension || !$summer || !$winter) {
+            return;
+        }
+
         foreach ($regularWorkflow as $step) {
-            ClearanceWorkflowStep::create([
+            if (!$step['office']) continue;
+            ClearanceWorkflowStep::firstOrCreate([
                 'student_type_id' => $regular->id,
                 'clearance_office_id' => $step['office']->id,
+            ], [
                 'step_order' => $step['order'],
                 'is_required' => $step['required'],
                 'is_active' => true,
@@ -89,9 +95,11 @@ class ClearanceWorkflowSeeder extends Seeder
         ];
 
         foreach ($extensionWorkflow as $step) {
-            ClearanceWorkflowStep::create([
+            if (!$step['office']) continue;
+            ClearanceWorkflowStep::firstOrCreate([
                 'student_type_id' => $extension->id,
                 'clearance_office_id' => $step['office']->id,
+            ], [
                 'step_order' => $step['order'],
                 'is_required' => $step['required'],
                 'is_active' => true,
@@ -114,9 +122,11 @@ class ClearanceWorkflowSeeder extends Seeder
         ];
 
         foreach ($summerWorkflow as $step) {
-            ClearanceWorkflowStep::create([
+            if (!$step['office']) continue;
+            ClearanceWorkflowStep::firstOrCreate([
                 'student_type_id' => $summer->id,
                 'clearance_office_id' => $step['office']->id,
+            ], [
                 'step_order' => $step['order'],
                 'is_required' => $step['required'],
                 'is_active' => true,
@@ -139,9 +149,11 @@ class ClearanceWorkflowSeeder extends Seeder
         ];
 
         foreach ($winterWorkflow as $step) {
-            ClearanceWorkflowStep::create([
+            if (!$step['office']) continue;
+            ClearanceWorkflowStep::firstOrCreate([
                 'student_type_id' => $winter->id,
                 'clearance_office_id' => $step['office']->id,
+            ], [
                 'step_order' => $step['order'],
                 'is_required' => $step['required'],
                 'is_active' => true,

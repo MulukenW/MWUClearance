@@ -205,10 +205,14 @@ class StudentController extends Controller
             ->count();
         
         // Get average completion time for completed clearances
+        $studentDiffSql = DB::getDriverName() === 'sqlite'
+            ? 'AVG((julianday(completed_at) - julianday(submitted_at)) * 24) as avg_hours'
+            : 'AVG(TIMESTAMPDIFF(HOUR, submitted_at, completed_at)) as avg_hours';
+
         $avgCompletionTime = ClearanceRequest::where('student_id', $id)
             ->where('status', 'completed')
             ->whereNotNull('completed_at')
-            ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, submitted_at, completed_at)) as avg_hours')
+            ->selectRaw($studentDiffSql)
             ->first();
         
         return response()->json([
@@ -221,7 +225,7 @@ class StudentController extends Controller
                 'completion_rate' => $totalClearances > 0 
                     ? round(($completedClearances / $totalClearances) * 100, 2) 
                     : 0,
-                'average_completion_hours' => $avgCompletionTime ? round($avgCompletionTime->avg_hours, 2) : null,
+                'average_completion_hours' => ($avgCompletionTime && $avgCompletionTime->avg_hours !== null) ? round((float) $avgCompletionTime->avg_hours, 2) : 0,
             ],
         ]);
     }
