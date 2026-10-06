@@ -22,37 +22,16 @@ services:
           name: mwu-clearance-api
           property: host
       - key: FRONTEND_URL
-        value: "https://frontend-sand-five-88.vercel.app"
+        sync: false
       - key: DB_CONNECTION
         value: mysql
       - key: DB_HOST
-        fromDatabase:
-          name: mwu-clearance-db
-          property: host
+        sync: false
       - key: DB_PORT
-        fromDatabase:
-          name: mwu-clearance-db
-          property: port
+        value: "3306"
       - key: DB_DATABASE
-        fromDatabase:
-          name: mwu-clearance-db
-          property: database
+        sync: false
       - key: DB_USERNAME
-        fromDatabase:
-          name: mwu-clearance-db
-          property: user
+        sync: false
       - key: DB_PASSWORD
-        fromDatabase:
-          name: mwu-clearance-db
-          property: password
-
-databases:
-  # ─── Render MySQL (or PostgreSQL) Database ────────────────────────────────
-  # Note: Render offers native PostgreSQL on the free tier.
-  # For MySQL, you can connect an external free MySQL instance (e.g. Aiven, Clever Cloud)
-  # or provision a Render database.
-  - name: mwu-clearance-db
-    plan: free
-    region: oregon
-    databaseName: mwu_clearance
-    user: clearance_user
+        sync: false
