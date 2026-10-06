@@ -1,12 +1,19 @@
 #!/bin/sh
 set -e
 
+if [ -z "$APP_KEY" ]; then
+    echo "==> APP_KEY not provided, generating temporary key..."
+    php artisan key:generate --force || true
+fi
+
 echo "==> Caching configuration and routes..."
 php artisan config:clear || true
 php artisan route:clear || true
 
 echo "==> Running database migrations..."
-php artisan migrate --force
+if ! php artisan migrate --force; then
+    echo "==> [WARNING] Database migration failed. Check your DB credentials in Render Environment tab."
+fi
 
 echo "==> Seeding essential roles & data (if needed)..."
 php artisan db:seed --force || true
