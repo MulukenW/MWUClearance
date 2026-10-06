@@ -61,9 +61,10 @@ class AdminController extends Controller
      */
     public function dashboard()
     {
-        // Students statistics
-        $totalStudents = Student::count();
-        $activeStudents = Student::where('status', 'active')->count();
+        try {
+            // Students statistics
+            $totalStudents = Student::count();
+            $activeStudents = Student::where('status', 'active')->count();
         $studentsByType = Student::select('student_type_id', DB::raw('COUNT(*) as count'))
             ->groupBy('student_type_id')
             ->with('studentType:id,name')
@@ -203,6 +204,14 @@ class AdminController extends Controller
                 'activity' => $activityData,
             ],
         ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dashboard error: ' . $e->getMessage(),
+                'file' => basename($e->getFile()),
+                'line' => $e->getLine(),
+            ], 500);
+        }
     }
 
     /**

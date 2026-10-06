@@ -36,10 +36,14 @@ Route::get('/health', function () {
     try {
         DB::connection()->getPdo();
         $userCount = \App\Models\User::count();
+        $collegeCount = \App\Models\College::count();
         return response()->json([
             'status' => 'ok',
             'database' => 'connected',
+            'driver' => DB::getDriverName(),
             'users_count' => $userCount,
+            'colleges_count' => $collegeCount,
+            'build' => 'v2026.10.06.dashboard-fix',
         ]);
     } catch (\Exception $e) {
         return response()->json([
